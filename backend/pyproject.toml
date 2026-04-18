@@ -1,7 +1,7 @@
 [project]
-name = "startup-analyzer-backend"
+name = "chapter-one-backend"
 version = "0.1.0"
-description = "CVF-based startup analyzer using gpt-5.3-chat on Azure AI Foundry"
+description = "Chapter One — collaborative idea-evaluation platform using gpt-5.3-chat on Azure AI Foundry"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115.0",
@@ -40,4 +40,6 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+# Keep only real-error categories for Phase 2. Style (UP, B, SIM) layered on later.
+select = ["E", "F"]
+ignore = ["E501"]  # line-length handled by formatter, not check
