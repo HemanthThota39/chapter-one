@@ -27,4 +27,6 @@ USER appuser
 
 EXPOSE 8000
 
+# Single image used for both API and workers. Container Apps Job entry overrides CMD.
+# Default is the API.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

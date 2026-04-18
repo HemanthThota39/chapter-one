@@ -30,6 +30,12 @@ param frontendHostname string = ''
 @description('Container Apps Environment default domain, to compose our own FQDN for API_BASE_URL.')
 param environmentDefaultDomain string
 
+@description('Service Bus namespace hostname for queue dispatch.')
+param serviceBusNamespace string = ''
+
+@description('Service Bus queue name for analysis jobs.')
+param serviceBusQueueAnalyses string = 'analyses.submitted'
+
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -142,6 +148,8 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'API_BASE_URL', value: 'https://${name}.${environmentDefaultDomain}' }
             { name: 'FRONTEND_BASE_URL', value: empty(frontendHostname) ? 'http://localhost:3000' : 'https://${frontendHostname}' }
             { name: 'CORS_ORIGINS', value: empty(frontendHostname) ? 'http://localhost:3000' : 'https://${frontendHostname},http://localhost:3000' }
+            { name: 'SERVICE_BUS_NAMESPACE', value: serviceBusNamespace }
+            { name: 'SERVICE_BUS_QUEUE_ANALYSES', value: serviceBusQueueAnalyses }
           ]
           probes: [
             {

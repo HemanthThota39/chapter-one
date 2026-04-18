@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     blob_container_raw: str = Field("raw", alias="BLOB_CONTAINER_RAW")
     blob_container_summaries: str = Field("summaries", alias="BLOB_CONTAINER_SUMMARIES")
 
+    # M2 — Service Bus
+    service_bus_namespace: str = Field("", alias="SERVICE_BUS_NAMESPACE")
+    service_bus_queue_analyses: str = Field("analyses.submitted", alias="SERVICE_BUS_QUEUE_ANALYSES")
+
+    # Worker role (process mode selector)
+    worker_role: str = Field("", alias="WORKER_ROLE")
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.analysis import router as analysis_router
 from app.api.telemetry import router as telemetry_router
+from app.api.v1.analyses import router as analyses_router_v1
 from app.api.v1.auth import router as auth_router_v1
 from app.api.v1.users import router as users_router_v1
 from app.config import get_settings
@@ -48,9 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# v1 — new auth + users
+# v1 — new auth + users + analyses
 app.include_router(auth_router_v1)
 app.include_router(users_router_v1)
+app.include_router(analyses_router_v1)
 
 # Legacy (Phase 1) — will be migrated in M2
 app.include_router(analysis_router)

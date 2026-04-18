@@ -68,6 +68,8 @@ var apiMiName      = '${namePrefix}-mi-api-${regionCode}'
 var pgName         = '${namePrefix}-pg-${regionCode}'
 var blobAccountName = 'co${env}blob${substring(uniqueString(resourceGroup().id), 0, 8)}'
 var swaName        = 'co-${env}-web'
+var sbNamespaceName = '${namePrefix}-sb-${regionCode}-${substring(uniqueString(resourceGroup().id), 0, 4)}'
+var workerJobName   = '${namePrefix}-worker-analysis-${regionCode}'
 
 // ---------------------------------------------------------------------
 // Monitoring — LA workspace + App Insights (set up FIRST)
@@ -143,6 +145,16 @@ resource secretSessionKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   }
 }
 
+// App Insights connection string stored in KV so the worker can load it via managed identity
+resource secretAppInsightsConn 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kvRef
+  name: 'appinsights-connection-string'
+  properties: {
+    value: monitor.outputs.appInsightsConnectionString
+    attributes: { enabled: true }
+  }
+}
+
 // ---------------------------------------------------------------------
 // Postgres Flexible Server — relational store
 // ---------------------------------------------------------------------
@@ -197,6 +209,63 @@ module web 'modules/static-web-app.bicep' = {
 }
 
 // ---------------------------------------------------------------------
+// Service Bus — analysis job queue
+// ---------------------------------------------------------------------
+module serviceBus 'modules/service-bus.bicep' = {
+  name: 'service-bus'
+  params: {
+    location:        location
+    name:            sbNamespaceName
+    logAnalyticsId:  monitor.outputs.logAnalyticsId
+    sendReceivePrincipals: [
+      apiIdentity.outputs.principalId   // API sends; worker (same MI) receives
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------
+// Analysis worker — Container Apps Job, queue-triggered
+// ---------------------------------------------------------------------
+module analysisWorker 'modules/container-app-job.bicep' = {
+  name: 'analysis-worker'
+  params: {
+    name:            workerJobName
+    location:        location
+    environmentId:   caEnv.outputs.id
+    image:           backendImage
+    managedIdentityId: apiIdentity.outputs.id
+    acrLoginServer:  acr.outputs.loginServer
+    keyVaultName:    kvName
+    triggerType:     'Event'
+    serviceBusQueueName: serviceBus.outputs.queueName
+    serviceBusNamespaceHostname: '${serviceBus.outputs.namespaceName}.servicebus.windows.net'
+    parallelism:     env == 'prod' ? 3 : 1
+    replicaCompletionCount: 1
+    replicaTimeout:  1800   // 30 min cap per analysis
+    replicaRetryLimit: 2
+    extraEnvVars: [
+      { name: 'CHAPTER_ONE_ENV', value: env }
+      { name: 'SERVICE_BUS_NAMESPACE', value: '${serviceBus.outputs.namespaceName}.servicebus.windows.net' }
+      { name: 'SERVICE_BUS_QUEUE_ANALYSES', value: serviceBus.outputs.queueName }
+      { name: 'BLOB_ENDPOINT', value: storage.outputs.blobEndpoint }
+      { name: 'AZURE_OPENAI_ENDPOINT', value: aiFoundryEndpoint }
+      { name: 'AZURE_OPENAI_DEPLOYMENT', value: aiFoundryDeployment }
+      { name: 'AZURE_OPENAI_API_VERSION', value: aiFoundryApiVersion }
+      { name: 'LOG_IDEA_TEXT', value: 'false' }
+      { name: 'LOG_RAW_RESPONSES', value: 'true' }
+      { name: 'RESEARCH_CONCURRENCY', value: '4' }
+      { name: 'WORKER_ROLE', value: 'analysis' }
+    ]
+    command: [ 'python' ]
+    args: [ '-m', 'app.workers.analysis_worker' ]
+  }
+  dependsOn: [
+    secretPgConnection
+    secretAiFoundryKey
+  ]
+}
+
+// ---------------------------------------------------------------------
 // Azure Container Registry — private image store
 // ---------------------------------------------------------------------
 module acr 'modules/acr.bicep' = {
@@ -247,12 +316,15 @@ module apiApp 'modules/container-app-api.bicep' = {
     blobEndpoint:    storage.outputs.blobEndpoint
     frontendHostname: web.outputs.defaultHostname
     environmentDefaultDomain: caEnv.outputs.defaultDomain
+    serviceBusNamespace: '${serviceBus.outputs.namespaceName}.servicebus.windows.net'
+    serviceBusQueueAnalyses: serviceBus.outputs.queueName
   }
   dependsOn: [
     secretAiFoundryKey
     secretPgPassword
     secretSessionKey
     secretPgConnection
+    secretAppInsightsConn
   ]
 }
 
@@ -282,4 +354,6 @@ output blobEndpoint string = storage.outputs.blobEndpoint
 output blobAccountName string = blobAccountName
 output frontendHostname string = web.outputs.defaultHostname
 output frontendUrl string = 'https://${web.outputs.defaultHostname}'
+output serviceBusNamespace string = serviceBus.outputs.namespaceName
+output analysisWorkerName string = workerJobName
 
