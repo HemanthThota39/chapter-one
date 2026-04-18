@@ -125,8 +125,7 @@ async def _process_one(
             duration_ms = int((time.perf_counter() - started) * 1000)
             logger.event("pipeline.complete", duration_ms=duration_ms)
     except Exception as e:
-        err = traceback.format_exc()
-        log.exception("pipeline error")
+        log.exception("pipeline error\n%s", traceback.format_exc())
         await store.mark_failed(analysis_id, error_message=str(e))
         await store.publish_event(analysis_id, kind="progress", stage="error", percent=100, message=str(e)[:200])
         return

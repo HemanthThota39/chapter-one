@@ -6,7 +6,7 @@ import logging
 import secrets
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.auth.dependencies import OptionalCurrentUser

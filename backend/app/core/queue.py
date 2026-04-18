@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 from azure.identity.aio import DefaultAzureCredential
 from azure.servicebus.aio import ServiceBusClient
