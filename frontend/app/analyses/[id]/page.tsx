@@ -153,30 +153,46 @@ export default function AnalysisDetailPage({
       </header>
 
       {running && (
-        <section className="card mb-5 p-5 md:p-6">
-          <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-6">
-            <ProgressRing percent={percent} />
-            <div className="min-w-0 flex-1 text-center md:text-left">
-              <h3 className="text-base font-semibold text-neutral-900">{stageLabel}</h3>
+        <section className="card mb-5 overflow-hidden p-5 md:p-6">
+          {/* Mobile: ring on top center, then left-aligned text block below.
+              Desktop: ring on the left, text block flows beside it. */}
+          <div className="flex flex-col items-start gap-4 md:flex-row md:gap-6">
+            <div className="mx-auto md:mx-0"><ProgressRing percent={percent} /></div>
+            <div className="min-w-0 w-full flex-1 text-left">
+              <h3 className="text-base font-semibold text-neutral-900 break-anywhere">
+                {stageLabel}
+              </h3>
               {detailLine && (
-                <div key={detailLine} className="pipeline-detail mt-1 truncate text-xs text-neutral-500">
+                <p
+                  key={detailLine}
+                  className="pipeline-detail mt-1 text-xs text-neutral-500 break-anywhere"
+                >
                   {detailLine}
-                </div>
+                </p>
               )}
               {events.length > 0 && (
-                <ul className="mt-4 space-y-1.5 text-left text-xs text-neutral-600">
+                <ul className="mt-4 space-y-1.5 text-xs text-neutral-600">
                   {events.map((e, i) => {
                     const isLast = i === events.length - 1;
                     return (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className={`mt-0.5 ${isLast ? "text-blue-600" : "text-neutral-400"}`}>
+                      <li
+                        key={i}
+                        className="flex min-w-0 items-start gap-2 break-anywhere"
+                      >
+                        <span
+                          className={`mt-0.5 shrink-0 ${isLast ? "text-blue-600" : "text-neutral-400"}`}
+                        >
                           {isLast ? "•" : "✓"}
                         </span>
-                        <span className="min-w-0">
-                          <span className={`font-medium ${isLast ? "text-neutral-900" : "text-neutral-700"}`}>
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`font-medium ${isLast ? "text-neutral-900" : "text-neutral-700"}`}
+                          >
                             {STAGE_LABELS[e.stage] ?? e.stage}
                           </span>
-                          {e.message ? <span className="text-neutral-500"> — {e.message}</span> : null}
+                          {e.message ? (
+                            <span className="text-neutral-500"> — {e.message}</span>
+                          ) : null}
                         </span>
                       </li>
                     );
