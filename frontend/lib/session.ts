@@ -64,14 +64,22 @@ export async function fetchSession(): Promise<SessionState> {
 type SessionContextValue = {
   session: SessionState;
   refresh: () => Promise<void>;
+  unreadCount: number;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-/** Root-level provider: fetches the session ONCE for the whole tree and
- *  exposes a refresh() so pages can pull fresh profile data after mutations. */
+function notificationsStreamUrl(): string {
+  return `${API_BASE}/api/v1/notifications/stream`;
+}
+
+/** Root-level provider: fetches the session ONCE for the whole tree,
+ *  opens exactly ONE notifications EventSource for the whole session,
+ *  and exposes a refresh() so pages can pull fresh profile data after
+ *  mutations. */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SessionState>({ status: "loading" });
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const refresh = useCallback(async () => {
     const s = await fetchSession();
@@ -84,9 +92,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Single notifications SSE for the entire app lifetime. Previously lived
+  // inside <AppShell> which remounts on every page navigation — that was
+  // opening a new SSE stream each time and accumulating ghost connections
+  // that throttled further fetches.
+  useEffect(() => {
+    if (session.status !== "authenticated") return;
+    const es = new EventSource(notificationsStreamUrl(), { withCredentials: true });
+    es.addEventListener("unread_count", (ev) => {
+      try {
+        const { unread_count } = JSON.parse((ev as MessageEvent).data);
+        setUnreadCount(unread_count);
+      } catch {/* ignore */}
+    });
+    es.onerror = () => {/* browser auto-reconnects */};
+    return () => es.close();
+  }, [session.status]);
+
   return React.createElement(
     SessionContext.Provider,
-    { value: { session, refresh } },
+    { value: { session, refresh, unreadCount } },
     children,
   );
 }
@@ -106,6 +131,13 @@ export function useSession(): SessionState {
 export function useSessionRefresh(): () => Promise<void> {
   const ctx = useContext(SessionContext);
   return ctx?.refresh ?? (async () => {/* no provider */});
+}
+
+/** Read the live unread-notifications count driven by the single
+ *  SessionProvider-owned EventSource. Returns 0 if no provider is mounted. */
+export function useUnreadCount(): number {
+  const ctx = useContext(SessionContext);
+  return ctx?.unreadCount ?? 0;
 }
 
 export function loginUrl(redirect?: string): string {

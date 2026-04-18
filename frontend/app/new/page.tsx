@@ -36,13 +36,8 @@ export default function NewIdeaPage() {
     }
   };
 
-  if (session.status !== "authenticated" || !session.user.onboarding_complete) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <div className="text-sm text-neutral-500">Loading...</div>
-      </main>
-    );
-  }
+  const ready =
+    session.status === "authenticated" && session.user.onboarding_complete;
 
   return (
     <AppShell title="New idea">
@@ -105,7 +100,7 @@ export default function NewIdeaPage() {
           </div>
         )}
 
-        <button type="submit" disabled={submitting || idea.trim().length < 20} className="btn-primary">
+        <button type="submit" disabled={!ready || submitting || idea.trim().length < 20} className="btn-primary">
           {submitting ? "Submitting…" : "Analyse idea"}
         </button>
       </form>

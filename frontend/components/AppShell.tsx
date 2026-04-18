@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "@/lib/session";
-import { notificationsStreamUrl } from "@/lib/social";
+import { useSession, useUnreadCount } from "@/lib/session";
 
 type Props = {
   children: React.ReactNode;
@@ -17,20 +15,7 @@ type Props = {
 export default function AppShell({ children, title, width = "narrow" }: Props) {
   const session = useSession();
   const pathname = usePathname() || "/";
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    if (session.status !== "authenticated") return;
-    const es = new EventSource(notificationsStreamUrl(), { withCredentials: true });
-    es.addEventListener("unread_count", (ev) => {
-      try {
-        const { unread_count } = JSON.parse((ev as MessageEvent).data);
-        setUnread(unread_count);
-      } catch {/* ignore */}
-    });
-    es.onerror = () => {/* browser auto-reconnects */};
-    return () => es.close();
-  }, [session.status]);
+  const unread = useUnreadCount();
 
   // Render the shell + content area even when session is still resolving.
   // A full-screen "Loading…" takeover used to trap the UI if the session

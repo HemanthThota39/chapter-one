@@ -76,17 +76,9 @@ export default function FeedPage() {
     });
   }, []);
 
-  if (session.status !== "authenticated") {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <div className="text-sm text-neutral-500">Loading...</div>
-      </main>
-    );
-  }
-
   return (
     <AppShell title="Feed">
-      {loading && items.length === 0 ? (
+      {(session.status !== "authenticated") || (loading && items.length === 0) ? (
         <FeedSkeleton />
       ) : error && items.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-8 text-center">

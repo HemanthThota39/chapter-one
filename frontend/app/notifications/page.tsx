@@ -56,10 +56,6 @@ export default function NotificationsPage() {
     if (target) router.push(target);
   };
 
-  if (session.status !== "authenticated") {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-neutral-500">Loading…</main>;
-  }
-
   const onClear = async (id: string) => {
     await clearNotification(id);
     invalidate("notifications:");
@@ -99,7 +95,7 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {loading && items.length === 0 ? (
+      {(session.status !== "authenticated") || (loading && items.length === 0) ? (
         <NotificationsSkeleton />
       ) : error && items.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-8 text-center">

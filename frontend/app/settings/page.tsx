@@ -87,9 +87,18 @@ export default function SettingsPage() {
 
   if (session.status !== "authenticated" || !session.user.onboarding_complete) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <div className="text-sm text-neutral-500">Loading...</div>
-      </main>
+      <AppShell title="Settings">
+        <div className="space-y-4">
+          <div className="h-6 w-48 animate-pulse rounded bg-neutral-200" />
+          <div className="card animate-pulse space-y-4 p-5">
+            <div className="h-4 w-32 rounded bg-neutral-200" />
+            <div className="h-9 rounded-xl bg-neutral-100" />
+            <div className="h-4 w-32 rounded bg-neutral-200" />
+            <div className="h-9 rounded-xl bg-neutral-100" />
+            <div className="h-9 w-28 rounded-full bg-neutral-200" />
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
