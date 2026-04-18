@@ -99,6 +99,7 @@ async def get(analysis_id: str, user: OptionalCurrentUser) -> dict:
             "display_name": row["owner_display_name"],
             "avatar_url": row["owner_avatar_url"],
         },
+        "idea_text": row["idea_text"] if is_owner else None,
         "idea_title": row["idea_title"],
         "slug": row["slug"],
         "status": row["status"],

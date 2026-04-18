@@ -127,6 +127,14 @@ export default function AnalysisDetailPage({
         <h1 className="mt-2 text-xl font-bold tracking-tight break-anywhere">
           {detail.idea_title || "Analysis in progress…"}
         </h1>
+        {/* Show the user their original submission while we don't have a title
+            yet — otherwise they'd stare at "Analysis in progress…" with no
+            indication which idea this is. */}
+        {!detail.idea_title && detail.idea_text && (
+          <blockquote className="mt-3 border-l-2 border-neutral-200 pl-3 text-sm italic text-neutral-600 break-anywhere line-clamp-6">
+            {detail.idea_text}
+          </blockquote>
+        )}
         {detail.verdict && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <span className={`rounded-full px-2.5 py-0.5 font-semibold ${verdictBadge(detail.verdict)}`}>

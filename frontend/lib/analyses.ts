@@ -36,6 +36,7 @@ export type AnalysisSummary = {
 
 export type AnalysisDetail = AnalysisSummary & {
   owner: { username: string | null; display_name: string; avatar_url: string | null };
+  idea_text: string | null;
   slug: string | null;
   confidence: string | null;
   error_message: string | null;
