@@ -6,6 +6,8 @@ param location string
 param environmentId string
 param image string
 param managedIdentityId string
+@description('Client ID of the managed identity for DefaultAzureCredential.')
+param managedIdentityClientId string = ''
 param acrLoginServer string
 param keyVaultName string
 
@@ -133,6 +135,7 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
             { name: 'DATABASE_URL', secretRef: 'database-url' }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights-connection-string' }
             { name: 'AZURE_OPENAI_API_KEY', secretRef: 'azure-openai-api-key' }
+            { name: 'AZURE_CLIENT_ID', value: managedIdentityClientId }
           ], extraEnvVars)
         }
       ]

@@ -8,6 +8,8 @@ param name string
 param environmentId string
 param image string
 param managedIdentityId string
+@description('Client ID (application ID) of the managed identity — needed by Azure SDKs DefaultAzureCredential.')
+param managedIdentityClientId string
 param keyVaultName string
 param acrLoginServer string
 param minReplicas int = 0
@@ -130,6 +132,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           }
           env: [
             { name: 'CHAPTER_ONE_ENV', value: env }
+            { name: 'AZURE_CLIENT_ID', value: managedIdentityClientId }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights-connection-string' }
             { name: 'AZURE_OPENAI_ENDPOINT', value: aiFoundryEndpoint }
             { name: 'AZURE_OPENAI_DEPLOYMENT', value: aiFoundryDeployment }

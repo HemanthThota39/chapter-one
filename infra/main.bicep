@@ -234,6 +234,7 @@ module analysisWorker 'modules/container-app-job.bicep' = {
     environmentId:   caEnv.outputs.id
     image:           backendImage
     managedIdentityId: apiIdentity.outputs.id
+    managedIdentityClientId: apiIdentity.outputs.clientId
     acrLoginServer:  acr.outputs.loginServer
     keyVaultName:    kvName
     triggerType:     'Event'
@@ -304,6 +305,7 @@ module apiApp 'modules/container-app-api.bicep' = {
     targetPort:      targetPort
     healthPath:      healthPath
     managedIdentityId: apiIdentity.outputs.id
+    managedIdentityClientId: apiIdentity.outputs.clientId
     keyVaultName:    kvName
     acrLoginServer:  acr.outputs.loginServer
     minReplicas:     env == 'prod' ? 1 : 0
