@@ -251,6 +251,26 @@ export default function ProfilePage({
   );
 }
 
+const STAGE_LABELS: Record<string, string> = {
+  queued: "Queued",
+  classifying: "Classifying idea",
+  research: "Running parallel research",
+  research_done: "Research complete",
+  analysis_1: "Analysing problem + business model",
+  analysis_2: "Analysing GTM + risk",
+  scoring: "Computing CVF scores",
+  compiling: "Generating report",
+  done: "Complete",
+  error: "Error",
+};
+
+function currentStepLabel(a: AnalysisSummary): string {
+  if (a.latest_stage && STAGE_LABELS[a.latest_stage]) return STAGE_LABELS[a.latest_stage];
+  if (a.latest_message) return a.latest_message;
+  if (a.status === "queued") return "Queued — worker will pick this up shortly";
+  return "Starting…";
+}
+
 function InProgressStrip({ items }: { items: AnalysisSummary[] }) {
   return (
     <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50/50 p-3">
@@ -259,21 +279,36 @@ function InProgressStrip({ items }: { items: AnalysisSummary[] }) {
         {items.length === 1 ? "1 analysis running" : `${items.length} analyses running`}
       </div>
       <ul className="space-y-1.5">
-        {items.map((a) => (
-          <li key={a.id}>
-            <Link
-              href={`/analyses/${a.id}`}
-              className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm shadow-sm transition hover:shadow-md"
-            >
-              <span className="truncate font-medium text-neutral-800 break-anywhere">
-                {a.idea_title || "Analysis starting…"}
-              </span>
-              <span className="shrink-0 text-[11px] font-medium text-blue-700">
-                {a.status === "queued" ? "Queued" : "Running"} →
-              </span>
-            </Link>
-          </li>
-        ))}
+        {items.map((a) => {
+          const pct = a.latest_percent ?? 0;
+          const step = currentStepLabel(a);
+          return (
+            <li key={a.id}>
+              <Link
+                href={`/analyses/${a.id}`}
+                className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm shadow-sm transition hover:shadow-md"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium text-neutral-800 break-anywhere">
+                    {a.idea_title || step}
+                  </div>
+                  {a.idea_title && (
+                    <div className="truncate text-[11px] text-neutral-500">{step}</div>
+                  )}
+                  <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-neutral-100">
+                    <div
+                      className="h-full bg-blue-600 transition-all duration-500"
+                      style={{ width: `${Math.max(2, Math.min(100, pct))}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="shrink-0 text-[11px] font-semibold tabular-nums text-blue-700">
+                  {pct}%
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -32,6 +32,10 @@ export type AnalysisSummary = {
   fire_count: number;
   comment_count: number;
   i_fired: boolean;
+  /** Latest progress event for the analysis (null until the first publish). */
+  latest_stage: string | null;
+  latest_percent: number | null;
+  latest_message: string | null;
 };
 
 export type AnalysisDetail = AnalysisSummary & {

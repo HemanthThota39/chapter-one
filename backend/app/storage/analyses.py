@@ -129,6 +129,9 @@ async def get_analysis(analysis_id: str) -> dict[str, Any] | None:
 
 
 async def list_user_analyses(owner_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    # latest_event pulls the most recent progress event per analysis so
+    # "in progress" cards can show the live stage + % rather than a generic
+    # "Analysis starting…" label.
     async with transaction() as conn:
         rows = await conn.fetch(
             """SELECT a.id, a.idea_title, a.status, a.visibility, a.overall_score_100,
@@ -141,9 +144,19 @@ async def list_user_analyses(owner_id: str, *, limit: int = 20) -> list[dict[str
                          WHERE p.id IS NOT NULL
                            AND f.post_id = p.id
                            AND f.user_id = $1::uuid
-                      ) AS i_fired
+                      ) AS i_fired,
+                      ev.stage   AS latest_stage,
+                      ev.percent AS latest_percent,
+                      ev.message AS latest_message
                  FROM analyses a
             LEFT JOIN posts p ON p.analysis_id = a.id
+            LEFT JOIN LATERAL (
+                      SELECT stage, percent, message
+                        FROM analysis_events
+                       WHERE analysis_id = a.id AND kind = 'progress'
+                    ORDER BY created_at DESC
+                       LIMIT 1
+                 ) ev ON TRUE
                 WHERE a.owner_id = $1::uuid
              ORDER BY a.submitted_at DESC
                 LIMIT $2""",

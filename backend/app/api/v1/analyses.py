@@ -78,6 +78,9 @@ async def list_mine(user: CurrentUser) -> dict:
             "fire_count": r.get("fire_count") or 0,
             "comment_count": r.get("comment_count") or 0,
             "i_fired": bool(r.get("i_fired")),
+            "latest_stage": r.get("latest_stage"),
+            "latest_percent": r.get("latest_percent"),
+            "latest_message": r.get("latest_message"),
         })
     return {"items": items}
 
