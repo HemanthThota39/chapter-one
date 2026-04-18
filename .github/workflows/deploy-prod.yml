@@ -67,7 +67,10 @@ jobs:
             -f infra/main.bicep \
             -p @infra/envs/prod.parameters.json \
             -p aiFoundryApiKey="${{ secrets.AZURE_OPENAI_API_KEY_PROD }}" \
+            -p postgresAdminPassword="${{ secrets.AZURE_PG_ADMIN_PASSWORD_PROD }}" \
+            -p sessionEncryptionKey="${{ secrets.AZURE_SESSION_KEY_PROD }}" \
             -p backendImage="${{ steps.acr.outputs.login_server }}/backend:${{ needs.build-backend.outputs.image_tag }}" \
             -p targetPort=8000 \
+            -p healthPath="/health" \
             -p monthlyBudgetInr=12500 \
             --name "deploy-${{ github.ref_name }}"

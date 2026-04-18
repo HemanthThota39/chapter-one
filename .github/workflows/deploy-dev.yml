@@ -67,8 +67,11 @@ jobs:
             -f infra/main.bicep \
             -p @infra/envs/dev.parameters.json \
             -p aiFoundryApiKey="${{ secrets.AZURE_OPENAI_API_KEY_DEV }}" \
+            -p postgresAdminPassword="${{ secrets.AZURE_PG_ADMIN_PASSWORD_DEV }}" \
+            -p sessionEncryptionKey="${{ secrets.AZURE_SESSION_KEY_DEV }}" \
             -p backendImage="${{ steps.acr.outputs.login_server }}/backend:${{ needs.build-backend.outputs.image_tag }}" \
             -p targetPort=8000 \
+            -p healthPath="/health" \
             --name "deploy-$(date +%Y%m%d-%H%M%S)"
 
   # Frontend SWA deploy lands in M1 when the Static Web App resource is provisioned.
