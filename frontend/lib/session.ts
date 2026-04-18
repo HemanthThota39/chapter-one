@@ -28,17 +28,36 @@ export type SessionState =
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-export async function fetchSession(): Promise<SessionState> {
+async function fetchSessionOnce(timeoutMs: number): Promise<SessionState> {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE}/api/v1/auth/session`, {
       credentials: "include",
+      signal: ac.signal,
     });
     if (res.status === 401) return { status: "unauthenticated" };
     if (!res.ok) return { status: "unauthenticated" };
     const { user } = await res.json();
     return { status: "authenticated", user };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function fetchSession(): Promise<SessionState> {
+  // Try once with a short timeout; if it stalls (typical during a rolling
+  // backend deploy), retry once with a longer window. Only after both
+  // attempts fail do we fall through to "unauthenticated" — stalling
+  // forever in "loading" would trap the whole UI.
+  try {
+    return await fetchSessionOnce(6000);
   } catch {
-    return { status: "unauthenticated" };
+    try {
+      return await fetchSessionOnce(12000);
+    } catch {
+      return { status: "unauthenticated" };
+    }
   }
 }
 

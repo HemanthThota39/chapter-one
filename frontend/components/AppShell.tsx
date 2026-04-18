@@ -32,26 +32,23 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
     return () => es.close();
   }, [session.status]);
 
-  if (session.status === "loading") {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-sm text-neutral-500">
-        Loading…
-      </main>
-    );
-  }
+  // Render the shell + content area even when session is still resolving.
+  // A full-screen "Loading…" takeover used to trap the UI if the session
+  // fetch hung (e.g. during a rolling backend deploy). Pages have their own
+  // skeletons already — show them, not a blank screen.
+  const user = session.status === "authenticated" ? session.user : null;
+  const fires = user?.fires_received ?? 0;
+  const maxW = width === "wide" ? "max-w-5xl" : "max-w-2xl";
 
-  if (session.status !== "authenticated") {
-    // Auth-gated pages handle redirects themselves — this path shouldn't normally hit.
+  if (session.status === "unauthenticated") {
+    // Auth-gated pages handle their own redirect-to-/; this path is a
+    // safety net for any page that doesn't.
     return <>{children}</>;
   }
-
-  const user = session.user;
-  const fires = user.fires_received ?? 0;
-  const maxW = width === "wide" ? "max-w-5xl" : "max-w-2xl";
   const isActive = (href: string) => {
     if (href === "/feed") return pathname === "/feed";
     if (href === "/notifications") return pathname.startsWith("/notifications");
-    if (href === `/${user.username}`) return pathname === `/${user.username}`;
+    if (user?.username && href === `/${user.username}`) return pathname === `/${user.username}`;
     return false;
   };
 
@@ -60,29 +57,33 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/70">
         <div className={`mx-auto flex h-14 ${maxW} items-center justify-between px-4 md:px-6`}>
-          <Link
-            href={user.username ? `/${user.username}` : "/feed"}
-            prefetch
-            aria-label="Profile"
-            className="flex items-center gap-2 rounded-full py-1 pr-2 transition hover:bg-neutral-100"
-          >
-            {user.avatar_url ? (
-              <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
-            ) : (
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700">
-                {user.display_name.slice(0, 1).toUpperCase()}
-              </span>
-            )}
-            {fires > 0 && (
-              <span
-                className="flex items-center gap-0.5 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700 ring-1 ring-orange-200"
-                title={`${fires} 🔥 received`}
-              >
-                <span aria-hidden>🔥</span>
-                <span>{fires}</span>
-              </span>
-            )}
-          </Link>
+          {user ? (
+            <Link
+              href={user.username ? `/${user.username}` : "/feed"}
+              prefetch
+              aria-label="Profile"
+              className="flex items-center gap-2 rounded-full py-1 pr-2 transition hover:bg-neutral-100"
+            >
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700">
+                  {user.display_name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              {fires > 0 && (
+                <span
+                  className="flex items-center gap-0.5 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700 ring-1 ring-orange-200"
+                  title={`${fires} 🔥 received`}
+                >
+                  <span aria-hidden>🔥</span>
+                  <span>{fires}</span>
+                </span>
+              )}
+            </Link>
+          ) : (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-200" />
+          )}
 
           {title && (
             <h1 className="truncate text-sm font-semibold tracking-tight text-neutral-800">
@@ -137,10 +138,10 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
             </Link>
           </div>
           <NavTab
-            href={`/${user.username ?? ""}`}
-            active={isActive(`/${user.username}`)}
+            href={user?.username ? `/${user.username}` : "/feed"}
+            active={!!user?.username && isActive(`/${user.username}`)}
             label="Profile"
-            icon={<UserIcon active={isActive(`/${user.username}`)} />}
+            icon={<UserIcon active={!!user?.username && isActive(`/${user.username}`)} />}
           />
           <NavTab
             href="/settings"
