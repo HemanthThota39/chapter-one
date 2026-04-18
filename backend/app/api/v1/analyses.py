@@ -20,7 +20,6 @@ from pydantic import BaseModel, Field, constr
 from sse_starlette.sse import EventSourceResponse
 
 from app.auth.dependencies import CurrentUser, OptionalCurrentUser
-from app.config import get_settings
 from app.core.queue import get_queue
 from app.db import get_pool
 from app.storage import analyses as store

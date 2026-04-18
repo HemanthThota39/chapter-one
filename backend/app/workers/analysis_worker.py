@@ -30,10 +30,9 @@ from app.core.mermaid_sanitizer import sanitize_markdown
 from app.core.progress import ProgressEvent
 from app.db import close_pool, get_pool
 from app.observability import AnalysisLogger, bind_logger
-from app.pipeline.agents.base import _AGENT_LABELS
 from app.pipeline.pipeline import StartupAnalysisPipeline
 from app.storage import analyses as store
-from app.storage.analyses import SectionInput, slugify, next_free_slug
+from app.storage.analyses import SectionInput, next_free_slug, slugify
 
 log = logging.getLogger(__name__)
 logging.basicConfig(
@@ -269,7 +268,7 @@ def _derive_confidence(result: Any) -> str:
 
 async def _update_user_activity(owner_id: str) -> None:
     """Increment total_analyses + bump streak if today is a new day."""
-    from datetime import date, timedelta
+    from datetime import date
     async with (await get_pool()).acquire() as conn:
         row = await conn.fetchrow(
             "SELECT last_activity_date, current_streak, longest_streak, timezone FROM users WHERE id=$1::uuid",

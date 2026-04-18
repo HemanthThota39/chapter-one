@@ -6,7 +6,7 @@ import io
 import logging
 import re
 import secrets
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal  # noqa: F401 (Any kept for JSON response typing hints)
 
 from fastapi import (
     APIRouter,
