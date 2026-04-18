@@ -115,6 +115,17 @@ async def onboard(
         avatar_url = await _process_and_upload_avatar(avatar_file, user_id=user.id)
 
     async with transaction() as conn:
+        # Pre-check: onboarding is once-and-only-once. ADR-022 usernames are immutable.
+        existing = await conn.fetchrow(
+            "SELECT username FROM users WHERE id = $1::uuid",
+            user.id,
+        )
+        if existing is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "user_not_found")
+        if existing["username"]:
+            # Already onboarded — don't let a stale client silently overwrite.
+            raise HTTPException(status.HTTP_409_CONFLICT, "already_onboarded")
+
         # Race-safe uniqueness via the UNIQUE constraint on username (CITEXT)
         try:
             row = await conn.fetchrow(
@@ -126,7 +137,7 @@ async def onboard(
                           avatar_seed = $6,
                           timezone = $7,
                           updated_at = NOW()
-                    WHERE id = $1::uuid
+                    WHERE id = $1::uuid AND username IS NULL
                 RETURNING id, external_id, email, username, display_name, avatar_url,
                           avatar_kind, avatar_seed, timezone, default_visibility,
                           total_analyses, current_streak, longest_streak,
@@ -138,6 +149,10 @@ async def onboard(
             if "unique" in msg and "username" in msg:
                 raise HTTPException(status.HTTP_409_CONFLICT, "username_taken")
             raise
+
+        if row is None:
+            # Another concurrent request onboarded us between the SELECT and UPDATE.
+            raise HTTPException(status.HTTP_409_CONFLICT, "already_onboarded")
 
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user_not_found")

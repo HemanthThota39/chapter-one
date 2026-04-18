@@ -63,10 +63,17 @@ export default function OnboardingPage() {
     }
   };
 
-  if (session.status !== "authenticated") {
+  // Guard: anything other than "authenticated AND not onboarded" shows a loader
+  // (and the effect above redirects to the right place). Prevents the form flashing.
+  const shouldShowForm =
+    session.status === "authenticated" && !session.user.onboarding_complete;
+
+  if (!shouldShowForm) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <div className="text-sm text-neutral-500">Loading...</div>
+        <div className="text-sm text-neutral-500">
+          {session.status === "loading" ? "Loading..." : "Redirecting..."}
+        </div>
       </main>
     );
   }
