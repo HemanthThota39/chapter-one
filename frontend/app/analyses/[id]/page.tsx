@@ -145,36 +145,38 @@ export default function AnalysisDetailPage({
       </header>
 
       {running && (
-        <section className="card mb-5 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="pipeline-spinner" aria-hidden />
-              <h3 className="text-sm font-semibold text-neutral-800">{stageLabel}</h3>
+        <section className="card mb-5 p-5 md:p-6">
+          <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-6">
+            <ProgressRing percent={percent} />
+            <div className="min-w-0 flex-1 text-center md:text-left">
+              <h3 className="text-base font-semibold text-neutral-900">{stageLabel}</h3>
+              {detailLine && (
+                <div key={detailLine} className="pipeline-detail mt-1 truncate text-xs text-neutral-500">
+                  {detailLine}
+                </div>
+              )}
+              {events.length > 0 && (
+                <ul className="mt-4 space-y-1.5 text-left text-xs text-neutral-600">
+                  {events.map((e, i) => {
+                    const isLast = i === events.length - 1;
+                    return (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className={`mt-0.5 ${isLast ? "text-blue-600" : "text-neutral-400"}`}>
+                          {isLast ? "•" : "✓"}
+                        </span>
+                        <span className="min-w-0">
+                          <span className={`font-medium ${isLast ? "text-neutral-900" : "text-neutral-700"}`}>
+                            {STAGE_LABELS[e.stage] ?? e.stage}
+                          </span>
+                          {e.message ? <span className="text-neutral-500"> — {e.message}</span> : null}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-            <span className="text-xs font-medium text-neutral-500">{percent}%</span>
           </div>
-          <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-            <div className="pipeline-shimmer h-full transition-all duration-500" style={{ width: `${Math.max(percent, 2)}%` }} />
-          </div>
-          {detailLine && (
-            <div key={detailLine} className="pipeline-detail truncate text-xs text-neutral-500">
-              <span className="mr-1 text-neutral-400">→</span>
-              {detailLine}
-            </div>
-          )}
-          <ul className="mt-3 space-y-1 text-sm text-neutral-600">
-            {events.map((e, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="mt-0.5 text-neutral-400">✓</span>
-                <span className="min-w-0">
-                  <span className="font-medium text-neutral-800">
-                    {STAGE_LABELS[e.stage] ?? e.stage}
-                  </span>
-                  {e.message ? <span className="text-neutral-500"> — {e.message}</span> : null}
-                </span>
-              </li>
-            ))}
-          </ul>
         </section>
       )}
 
@@ -228,5 +230,39 @@ function DownloadIcon() {
       <path d="m7 10 5 5 5-5" />
       <path d="M5 21h14" />
     </svg>
+  );
+}
+
+function ProgressRing({ percent }: { percent: number }) {
+  // Clamp for safety; show at least 2% so the ring has a visible arc.
+  const p = Math.max(2, Math.min(100, percent));
+  const size = 112;
+  const stroke = 8;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (p / 100) * c;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="#e5e7eb" strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none"
+          stroke="#111827"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 600ms cubic-bezier(0.2, 0.7, 0.2, 1)" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold tabular-nums tracking-tight">{Math.round(p)}%</span>
+        <span className="text-[10px] uppercase tracking-wider text-neutral-500">Running</span>
+      </div>
+    </div>
   );
 }

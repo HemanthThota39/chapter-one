@@ -308,8 +308,10 @@ module apiApp 'modules/container-app-api.bicep' = {
     managedIdentityClientId: apiIdentity.outputs.clientId
     keyVaultName:    kvName
     acrLoginServer:  acr.outputs.loginServer
-    minReplicas:     env == 'prod' ? 1 : 0
-    maxReplicas:     env == 'prod' ? 3 : 1
+    // Dev keeps 1 warm replica too — cold starts from zero blew the 15s
+    // browser fetch timeout and showed "Network error" on the feed/alerts.
+    minReplicas:     env == 'prod' ? 1 : 1
+    maxReplicas:     env == 'prod' ? 3 : 2
     appInsightsConnectionString: monitor.outputs.appInsightsConnectionString
     env:             env
     aiFoundryEndpoint: aiFoundryEndpoint
