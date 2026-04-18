@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { submitAnalysis } from "@/lib/analyses";
+import AppShell from "@/components/AppShell";
 
 export default function NewIdeaPage() {
   const session = useSession();
@@ -44,15 +45,9 @@ export default function NewIdeaPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 md:px-6">
-      <header className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="text-xs text-neutral-500 hover:text-neutral-800"
-        >
-          ← Back
-        </button>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">New idea</h1>
+    <AppShell title="New idea">
+      <header className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight">New idea</h1>
         <p className="mt-1 text-sm text-neutral-600">
           Describe your startup idea. The deeper the description, the richer the report.
         </p>
@@ -60,7 +55,7 @@ export default function NewIdeaPage() {
 
       <form onSubmit={onSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium">Your idea</label>
+          <label className="block text-sm font-medium text-neutral-800">Your idea</label>
           <textarea
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
@@ -68,8 +63,8 @@ export default function NewIdeaPage() {
             minLength={20}
             maxLength={4000}
             rows={8}
-            placeholder="e.g. A compliance copilot that helps Indian CA firms automate GST filings for their SMB clients, with..."
-            className="mt-1 w-full rounded-md border border-neutral-300 bg-white p-3 text-sm shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+            placeholder="e.g. A compliance copilot that helps Indian CA firms automate GST filings for their SMB clients, with…"
+            className="input mt-1 resize-y"
             disabled={submitting}
           />
           <div className="mt-1 flex justify-between text-xs text-neutral-500">
@@ -79,51 +74,45 @@ export default function NewIdeaPage() {
         </div>
 
         <fieldset>
-          <legend className="block text-sm font-medium">Visibility</legend>
+          <legend className="block text-sm font-medium text-neutral-800">Visibility</legend>
           <div className="mt-2 space-y-2 text-sm">
-            <label className="flex gap-2">
+            <label className="flex items-start gap-2">
               <input
                 type="radio"
+                className="mt-1 accent-neutral-900"
                 checked={visibility === "public"}
                 onChange={() => setVisibility("public")}
                 disabled={submitting}
               />
-              <span>
-                <strong>Public</strong> — shows in the feed; anyone with the share link can read.
-              </span>
+              <span><strong>Public</strong> — shows in the feed; anyone with the share link can read.</span>
             </label>
-            <label className="flex gap-2">
+            <label className="flex items-start gap-2">
               <input
                 type="radio"
+                className="mt-1 accent-neutral-900"
                 checked={visibility === "private"}
                 onChange={() => setVisibility("private")}
                 disabled={submitting}
               />
-              <span>
-                <strong>Private</strong> — only you can see it. Toggle later anytime.
-              </span>
+              <span><strong>Private</strong> — only you can see it. Toggle later anytime.</span>
             </label>
           </div>
         </fieldset>
 
         {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting || idea.trim().length < 20}
-          className="rounded-md bg-neutral-900 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-neutral-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
-        >
-          {submitting ? "Submitting..." : "Analyse idea"}
+        <button type="submit" disabled={submitting || idea.trim().length < 20} className="btn-primary">
+          {submitting ? "Submitting…" : "Analyse idea"}
         </button>
       </form>
 
       <p className="mt-8 text-xs text-neutral-500">
-        Analysis takes ~3-5 minutes. You can leave this page; we'll keep going.
+        Analysis takes ~3–5 minutes. You can leave this page; we'll keep going.
       </p>
-    </main>
+    </AppShell>
   );
 }

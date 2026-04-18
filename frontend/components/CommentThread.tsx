@@ -91,14 +91,14 @@ export default function CommentThread({ postId }: Props) {
   }
 
   return (
-    <section className="mt-4 border-t border-neutral-100 pt-4">
+    <section className="mt-2 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
       <h4 className="mb-3 text-sm font-semibold text-neutral-700">
         Comments
         {comments.length > 0 && ` (${comments.length})`}
       </h4>
 
       {loading ? (
-        <div className="text-xs text-neutral-500">Loading comments...</div>
+        <div className="text-xs text-neutral-500">Loading comments…</div>
       ) : tops.length === 0 ? (
         <div className="text-xs text-neutral-500">No comments yet. Be the first.</div>
       ) : (
@@ -112,7 +112,7 @@ export default function CommentThread({ postId }: Props) {
                 onDelete={() => onDelete(c.id)}
               />
               {children[c.id] && children[c.id].length > 0 && (
-                <ul className="ml-8 mt-2 space-y-2 border-l border-neutral-200 pl-3">
+                <ul className="ml-6 mt-2 space-y-2 border-l-2 border-neutral-100 pl-3">
                   {children[c.id].map((r) => (
                     <li key={r.id}>
                       <CommentRow
@@ -133,7 +133,7 @@ export default function CommentThread({ postId }: Props) {
       {session.status === "authenticated" && (
         <form onSubmit={submit} className="mt-4 space-y-2">
           {replyTo && (
-            <div className="flex items-center justify-between rounded-md bg-neutral-50 px-2 py-1 text-xs text-neutral-600">
+            <div className="flex items-center justify-between rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600">
               <span>Replying to a comment</span>
               <button
                 type="button"
@@ -147,19 +147,19 @@ export default function CommentThread({ postId }: Props) {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Add a comment..."
+            placeholder="Add a comment…"
             maxLength={1000}
             rows={2}
-            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+            className="input resize-y"
           />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] text-neutral-400">URLs auto-linkify. No markdown.</span>
             <button
               type="submit"
               disabled={posting || !body.trim()}
-              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:bg-neutral-400"
+              className="btn-primary !px-3.5 !py-1.5 text-xs"
             >
-              {posting ? "Posting..." : replyTo ? "Reply" : "Comment"}
+              {posting ? "Posting…" : replyTo ? "Reply" : "Comment"}
             </button>
           </div>
         </form>

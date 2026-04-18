@@ -3,27 +3,82 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+html, body {
+  /* Kill stray page-level horizontal scroll; specific elements opt back in. */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
   @apply bg-neutral-50 text-neutral-900 antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-.prose-report h1 { @apply text-2xl font-bold mt-8 mb-4; }
-.prose-report h2 { @apply text-xl font-semibold mt-6 mb-3; }
-.prose-report h3 { @apply text-lg font-semibold mt-4 mb-2; }
-.prose-report p { @apply my-2 leading-relaxed; }
-.prose-report ul { @apply list-disc ml-6 my-2; }
-.prose-report ol { @apply list-decimal ml-6 my-2; }
-.prose-report table { @apply border-collapse my-3 text-sm; }
-.prose-report th, .prose-report td { @apply border border-neutral-300 px-3 py-1.5; }
-.prose-report th { @apply bg-neutral-100 font-semibold; }
-.prose-report blockquote { @apply border-l-4 border-neutral-300 pl-3 italic my-2; }
-.prose-report code { @apply bg-neutral-100 px-1 py-0.5 rounded text-sm; }
-.prose-report pre { @apply bg-neutral-100 p-3 rounded overflow-x-auto my-3; }
+/* Any long, unbreakable tokens (URLs, hashes) wrap rather than overflow. */
+.break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
+
+/* -- Design tokens: button primitives used across the app ----------------- */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300;
+}
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
+}
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900;
+}
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-red-300;
+}
+.card {
+  @apply rounded-2xl border border-neutral-200 bg-white shadow-sm;
+}
+.input {
+  @apply w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200;
+}
+
+/* -- Report rendering ---------------------------------------------------- */
+.prose-report { @apply text-neutral-800; max-width: 100%; }
+.prose-report > * { max-width: 100%; }
+.prose-report h1 { @apply text-xl md:text-2xl font-bold mt-8 mb-4 tracking-tight; }
+.prose-report h2 { @apply text-lg md:text-xl font-semibold mt-6 mb-3 tracking-tight; }
+.prose-report h3 { @apply text-base md:text-lg font-semibold mt-4 mb-2; }
+.prose-report p { @apply my-2 leading-relaxed; overflow-wrap: anywhere; }
+.prose-report a { @apply text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800; overflow-wrap: anywhere; }
+.prose-report ul { @apply list-disc ml-5 md:ml-6 my-2 space-y-1; }
+.prose-report ol { @apply list-decimal ml-5 md:ml-6 my-2 space-y-1; }
+.prose-report li { overflow-wrap: anywhere; }
+
+/* Tables scroll inside their own wrapper; the renderer injects .table-scroll around every <table>. */
+.prose-report table {
+  @apply border-collapse text-sm w-full;
+  display: table;
+}
+.prose-report th, .prose-report td { @apply border border-neutral-200 px-3 py-1.5 align-top; }
+.prose-report th { @apply bg-neutral-50 font-semibold text-left; }
+.prose-report .table-scroll {
+  @apply my-3 overflow-x-auto rounded-md border border-neutral-200;
+  -webkit-overflow-scrolling: touch;
+}
+.prose-report .table-scroll > table { @apply my-0 border-0; }
+.prose-report .table-scroll th,
+.prose-report .table-scroll td {
+  @apply border-r border-neutral-100 last:border-r-0;
+  white-space: nowrap;
+}
+
+.prose-report blockquote { @apply border-l-4 border-neutral-300 pl-3 italic my-2 text-neutral-700; }
+.prose-report code { @apply bg-neutral-100 px-1 py-0.5 rounded text-[0.85em]; overflow-wrap: anywhere; }
+.prose-report pre { @apply bg-neutral-100 p-3 rounded-md overflow-x-auto my-3 text-xs md:text-sm; }
+.prose-report pre code { @apply bg-transparent p-0; white-space: pre; overflow-wrap: normal; }
+.prose-report img { @apply max-w-full h-auto; }
 .prose-report .chart-block { @apply my-6 overflow-x-auto; }
-.prose-report .chart-block svg { @apply max-w-full h-auto mx-auto block; }
+.prose-report .chart-block svg, .prose-report svg { @apply max-w-full h-auto mx-auto block; }
+.prose-report hr { @apply my-6 border-neutral-200; }
 
 /* Spinner — pure CSS, zero JS overhead */
 .pipeline-spinner {

@@ -33,24 +33,20 @@ export default function PostCard({ item, onOpenComments }: Props) {
   };
 
   return (
-    <article className="rounded-md border border-neutral-200 bg-white p-4 shadow-sm">
-      <header className="mb-3 flex items-start justify-between">
-        <div className="flex items-center gap-3">
+    <article className="card p-4">
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <a href={`/${item.owner.username}`} className="shrink-0">
             {item.owner.avatar_url ? (
-              <img
-                src={item.owner.avatar_url}
-                alt=""
-                className="h-10 w-10 rounded-full object-cover"
-              />
+              <img src={item.owner.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
             ) : (
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-200 font-semibold">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-200 font-semibold text-neutral-700">
                 {item.owner.display_name.slice(0, 1).toUpperCase()}
               </span>
             )}
           </a>
-          <div>
-            <div className="text-sm font-medium">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">
               <a href={`/${item.owner.username}`} className="hover:underline">
                 {item.owner.display_name}
               </a>{" "}
@@ -63,31 +59,33 @@ export default function PostCard({ item, onOpenComments }: Props) {
         </div>
       </header>
 
-      <h3 className="mb-1 text-base font-semibold text-neutral-900">
+      <h3 className="mb-2 text-base font-semibold tracking-tight text-neutral-900 break-anywhere">
         <a href={`/analyses/${item.analysis_id}`} className="hover:underline">
           {item.idea_title ?? "Untitled analysis"}
         </a>
       </h3>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-neutral-600">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         {item.verdict && (
-          <span className={`rounded-full px-2 py-0.5 font-medium ${verdictColor(item.verdict)}`}>
+          <span className={`rounded-full px-2.5 py-0.5 font-semibold ${verdictColor(item.verdict)}`}>
             {item.verdict}
           </span>
         )}
         {item.overall_score_100 != null && (
-          <span className="font-medium text-neutral-700">{item.overall_score_100}/100</span>
+          <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 font-semibold text-neutral-800">
+            {item.overall_score_100}/100
+          </span>
         )}
       </div>
 
       {item.caption && (
-        <p className="mb-3 text-sm text-neutral-700">{item.caption}</p>
+        <p className="mb-3 text-sm text-neutral-700 break-anywhere">{item.caption}</p>
       )}
 
-      <footer className="flex items-center gap-4 border-t border-neutral-100 pt-3 text-sm">
+      <footer className="flex items-center gap-2 border-t border-neutral-100 pt-3 text-sm">
         <button
           onClick={handleFire}
           disabled={busy}
-          className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition ${fired ? "bg-orange-50 text-orange-700" : "text-neutral-600 hover:bg-neutral-100"}`}
+          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition active:scale-95 ${fired ? "bg-orange-50 text-orange-700" : "text-neutral-600 hover:bg-neutral-100"}`}
           aria-pressed={fired}
         >
           <span className={fired ? "animate-pop" : ""}>🔥</span>
@@ -95,7 +93,7 @@ export default function PostCard({ item, onOpenComments }: Props) {
         </button>
         <button
           onClick={() => onOpenComments?.(item.post_id)}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+          className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-600 transition hover:bg-neutral-100"
         >
           💬 <span className="font-semibold">{item.comment_count}</span>
         </button>
@@ -103,7 +101,7 @@ export default function PostCard({ item, onOpenComments }: Props) {
           href={`/analyses/${item.analysis_id}`}
           className="ml-auto text-xs font-medium text-neutral-700 hover:underline"
         >
-          View full report →
+          View report →
         </a>
       </footer>
     </article>

@@ -11,7 +11,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/social";
-import Header from "@/components/Header";
+import AppShell from "@/components/AppShell";
 
 export default function NotificationsPage() {
   const session = useSession();
@@ -55,34 +55,32 @@ export default function NotificationsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 md:px-6">
-      <Header title="Notifications" subtitle={`${unread} unread`} />
-
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-2 text-xs">
+    <AppShell title="Notifications">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex rounded-full bg-neutral-100 p-0.5 text-xs">
           <button
             onClick={() => setFilter("all")}
-            className={`rounded-md px-3 py-1 ${filter === "all" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700"}`}
+            className={`rounded-full px-3 py-1 font-medium transition ${filter === "all" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600"}`}
           >
             All
           </button>
           <button
             onClick={() => setFilter("unread")}
-            className={`rounded-md px-3 py-1 ${filter === "unread" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700"}`}
+            className={`rounded-full px-3 py-1 font-medium transition ${filter === "unread" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600"}`}
           >
-            Unread
+            Unread {unread > 0 && <span className="ml-0.5 text-red-600">· {unread}</span>}
           </button>
         </div>
         <div className="flex gap-2 text-xs">
           <button
             onClick={async () => { await markAllNotificationsRead(); await load(filter); }}
-            className="rounded-md border border-neutral-300 px-3 py-1 hover:bg-neutral-100"
+            className="btn-ghost"
           >
             Mark all read
           </button>
           <button
             onClick={async () => { await clearAllNotifications(); await load(filter); }}
-            className="rounded-md border border-neutral-300 px-3 py-1 hover:bg-neutral-100"
+            className="btn-ghost"
           >
             Clear all
           </button>
@@ -90,10 +88,10 @@ export default function NotificationsPage() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-neutral-500">Loading...</div>
+        <div className="py-10 text-center text-sm text-neutral-500">Loading…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-md border-2 border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
-          {filter === "unread" ? "All caught up." : "No notifications yet."}
+        <div className="card p-8 text-center text-sm text-neutral-500">
+          {filter === "unread" ? "All caught up ✨" : "No notifications yet."}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -101,15 +99,13 @@ export default function NotificationsPage() {
             <li
               key={n.id}
               onClick={() => onOpen(n)}
-              className={`cursor-pointer rounded-md border p-3 transition hover:bg-neutral-50 ${n.read_at ? "border-neutral-200 bg-white" : "border-blue-300 bg-blue-50"}`}
+              className={`group card cursor-pointer p-3 transition hover:shadow-md ${n.read_at ? "" : "ring-1 ring-blue-200 bg-blue-50/50"}`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-lg">{kindIcon(n.kind)}</span>
-                  <div>
-                    <div className="text-sm">
-                      {describe(n)}
-                    </div>
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className="text-lg shrink-0">{kindIcon(n.kind)}</span>
+                  <div className="min-w-0">
+                    <div className="text-sm text-neutral-800 break-anywhere">{describe(n)}</div>
                     <div className="mt-0.5 text-[11px] text-neutral-400">
                       {timeago(n.created_at)}
                     </div>
@@ -117,7 +113,7 @@ export default function NotificationsPage() {
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); onClear(n.id); }}
-                  className="text-[11px] text-neutral-400 hover:text-red-600"
+                  className="shrink-0 text-[11px] text-neutral-400 hover:text-red-600"
                 >
                   Clear
                 </button>
@@ -126,7 +122,7 @@ export default function NotificationsPage() {
           ))}
         </ul>
       )}
-    </main>
+    </AppShell>
   );
 }
 

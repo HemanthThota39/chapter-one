@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE, logout, useSession } from "@/lib/session";
+import AppShell from "@/components/AppShell";
 
 export default function SettingsPage() {
   const session = useSession();
@@ -95,58 +96,52 @@ export default function SettingsPage() {
   const user = session.user;
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-8 md:px-6">
-      <header className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="text-xs text-neutral-500 hover:text-neutral-800"
-        >
-          ← Back
-        </button>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-neutral-600">
-          @{user.username} · {user.email}
-        </p>
+    <AppShell title="Settings">
+      <header className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="mt-1 text-sm text-neutral-600 break-anywhere">@{user.username} · {user.email}</p>
       </header>
 
-      <form onSubmit={handleSave} className="space-y-5">
+      <form onSubmit={handleSave} className="card space-y-5 p-5">
         <div>
-          <label className="block text-sm font-medium">Username</label>
+          <label className="block text-sm font-medium text-neutral-800">Username</label>
           <input
             type="text"
             value={user.username ?? ""}
             readOnly
-            className="mt-1 w-full cursor-not-allowed rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
+            className="mt-1 w-full cursor-not-allowed rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
           />
           <p className="mt-1 text-xs text-neutral-500">Usernames are immutable. Email support if you need a change.</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Display name</label>
+          <label className="block text-sm font-medium text-neutral-800">Display name</label>
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
             maxLength={40}
-            className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+            className="input mt-1"
           />
         </div>
 
         <fieldset>
-          <legend className="block text-sm font-medium">Default visibility for new analyses</legend>
+          <legend className="block text-sm font-medium text-neutral-800">Default visibility for new analyses</legend>
           <div className="mt-2 space-y-2 text-sm">
-            <label className="flex gap-2">
+            <label className="flex items-start gap-2">
               <input
                 type="radio"
+                className="mt-1 accent-neutral-900"
                 checked={defaultVisibility === "public"}
                 onChange={() => setDefaultVisibility("public")}
               />
               <span><strong>Public</strong> — analyses show in the feed by default.</span>
             </label>
-            <label className="flex gap-2">
+            <label className="flex items-start gap-2">
               <input
                 type="radio"
+                className="mt-1 accent-neutral-900"
                 checked={defaultVisibility === "private"}
                 onChange={() => setDefaultVisibility("private")}
               />
@@ -156,40 +151,32 @@ export default function SettingsPage() {
         </fieldset>
 
         <div>
-          <label className="block text-sm font-medium">Timezone</label>
+          <label className="block text-sm font-medium text-neutral-800">Timezone</label>
           <input
             type="text"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
             placeholder="Asia/Kolkata"
-            className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+            className="input mt-1"
           />
-          <p className="mt-1 text-xs text-neutral-500">
-            IANA zone name. Used for streak day-boundary math.
-          </p>
+          <p className="mt-1 text-xs text-neutral-500">IANA zone name. Used for streak day-boundary math.</p>
         </div>
 
         {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-neutral-700 disabled:bg-neutral-400"
-          >
-            {saving ? "Saving..." : "Save changes"}
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? "Saving…" : "Save changes"}
           </button>
-          {saved && <span className="text-xs text-green-700">Saved ✓</span>}
+          {saved && <span className="text-xs font-medium text-green-700">Saved ✓</span>}
         </div>
       </form>
 
-      <hr className="my-10 border-neutral-200" />
-
-      <section className="rounded-md border border-red-200 bg-red-50 p-4">
+      <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5">
         <h2 className="text-sm font-semibold text-red-900">Danger zone</h2>
         <p className="mt-1 text-xs text-red-800">
           Delete your account and all data: analyses, debates, comments, fires, avatars.
@@ -201,18 +188,27 @@ export default function SettingsPage() {
             value={confirmInput}
             onChange={(e) => setConfirmInput(e.target.value)}
             placeholder='Type "delete my account" to confirm'
-            className="w-full rounded-md border border-red-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-red-300 bg-white px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
             disabled={deleting}
           />
           <button
             onClick={handleDelete}
             disabled={deleting || confirmInput !== "delete my account"}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+            className="btn-danger"
           >
-            {deleting ? "Deleting..." : "Delete my account"}
+            {deleting ? "Deleting…" : "Delete my account"}
           </button>
         </div>
       </section>
-    </main>
+
+      <div className="mt-6 flex justify-center">
+        <button
+          onClick={async () => { await logout(); router.replace("/"); }}
+          className="btn-ghost text-xs"
+        >
+          Log out
+        </button>
+      </div>
+    </AppShell>
   );
 }

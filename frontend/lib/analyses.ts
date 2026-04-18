@@ -61,3 +61,7 @@ export function streamUrl(id: string): string {
 export function reportUrl(id: string): string {
   return `${API_BASE}/api/v1/analyses/${id}/report`;
 }
+
+export function reportPdfUrl(id: string): string {
+  return `${API_BASE}/api/v1/analyses/${id}/report.pdf`;
+}

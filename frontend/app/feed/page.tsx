@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { FeedItem, fetchFeed } from "@/lib/social";
-import Header from "@/components/Header";
+import AppShell from "@/components/AppShell";
 import PostCard from "@/components/PostCard";
 import CommentThread from "@/components/CommentThread";
 
@@ -57,20 +57,13 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 md:px-6">
-      <Header title="Feed" subtitle="Ideas from your circle" />
-
+    <AppShell title="Feed">
       {loading ? (
-        <div className="text-sm text-neutral-500">Loading feed...</div>
+        <div className="py-10 text-center text-sm text-neutral-500">Loading feed…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-md border-2 border-dashed border-neutral-300 bg-white p-8 text-center">
+        <div className="card flex flex-col items-center gap-3 p-8 text-center">
           <p className="text-sm text-neutral-700">The feed is quiet right now.</p>
-          <a
-            href="/new"
-            className="mt-3 inline-block rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-          >
-            Submit the first idea
-          </a>
+          <a href="/new" className="btn-primary">Submit the first idea</a>
         </div>
       ) : (
         <ul className="space-y-4">
@@ -85,14 +78,9 @@ export default function FeedPage() {
 
       {nextCursor && (
         <div className="mt-6 flex justify-center">
-          <button
-            onClick={loadMore}
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-100"
-          >
-            Load more
-          </button>
+          <button onClick={loadMore} className="btn-secondary">Load more</button>
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }

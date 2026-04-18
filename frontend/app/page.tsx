@@ -25,12 +25,12 @@ export default function LandingPage() {
 
   return (
     <main className="flex min-h-screen flex-col">
-      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 py-16">
+      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 py-12 md:py-16">
         <div className="mb-10">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white">
             <span>Chapter One</span>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">
             It all starts with Chapter One.
           </h1>
           <p className="mt-4 text-base text-neutral-600 md:text-lg">
@@ -41,10 +41,7 @@ export default function LandingPage() {
         </div>
 
         <div className="space-y-3">
-          <a
-            href={loginUrl()}
-            className="block w-full rounded-md bg-neutral-900 px-5 py-3 text-center text-sm font-medium text-white shadow-sm hover:bg-neutral-700"
-          >
+          <a href={loginUrl()} className="btn-primary w-full !py-3 text-base">
             Continue with Google
           </a>
           <p className="text-center text-xs text-neutral-500">
@@ -69,7 +66,7 @@ export default function LandingPage() {
       </div>
 
       <footer className="border-t border-neutral-200 py-6 text-center text-xs text-neutral-400">
-        Chapter One · built for 5 friends · open source · MIT licensed
+        Chapter One · built for friends · MIT licensed
       </footer>
     </main>
   );

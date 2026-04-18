@@ -5,6 +5,7 @@ GET    /api/v1/analyses                  — list current user's analyses
 GET    /api/v1/analyses/{id}             — metadata
 GET    /api/v1/analyses/{id}/stream      — SSE progress (LISTEN/NOTIFY driven)
 GET    /api/v1/analyses/{id}/report      — markdown of current version
+GET    /api/v1/analyses/{id}/report.pdf  — PDF of current version (download)
 DELETE /api/v1/analyses/{id}             — delete (cascades)
 """
 
@@ -21,6 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.auth.dependencies import CurrentUser, OptionalCurrentUser
 from app.core.queue import get_queue
+from app.core.pdf import render_pdf, safe_filename
 from app.db import get_pool
 from app.storage import analyses as store
 from app.storage import social
@@ -196,6 +198,45 @@ async def report(analysis_id: str, user: OptionalCurrentUser, version: str | Non
     if md is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "report_not_ready")
     return Response(content=md, media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/{analysis_id}/report.pdf")
+async def report_pdf(analysis_id: str, user: OptionalCurrentUser, version: str | None = None):
+    row = await store.get_analysis(analysis_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not_found")
+    is_owner = user is not None and str(user.id) == str(row["owner_id"])
+    is_public = row["visibility"] == "public" and row["status"] == "done"
+    if not (is_owner or is_public):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not_found")
+    md = await store.render_report_markdown(analysis_id, version_id=version)
+    if md is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "report_not_ready")
+
+    completed = row.get("completed_at")
+    generated_at = completed.strftime("%d %b %Y") if completed else None
+
+    try:
+        # weasyprint is synchronous and CPU-bound; keep the event loop free.
+        pdf_bytes = await asyncio.to_thread(
+            render_pdf,
+            md,
+            title=row.get("idea_title"),
+            verdict=row.get("verdict"),
+            score=row.get("overall_score_100"),
+            author=None,
+            generated_at=generated_at,
+        )
+    except Exception:
+        log.exception("pdf render failed for analysis %s", analysis_id)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "pdf_render_failed") from None
+
+    filename = safe_filename(row.get("idea_title"), fallback=f"analysis-{analysis_id[:8]}") + ".pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 class PatchAnalysisRequest(BaseModel):

@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE, useSession } from "@/lib/session";
+import AppShell from "@/components/AppShell";
 
 type PublicProfile = {
   username: string;
@@ -55,23 +56,29 @@ export default function ProfilePage({
 
   if (error === "not_found") {
     return (
-      <main className="mx-auto max-w-md px-6 py-16 text-center">
-        <h1 className="text-xl font-semibold">User not found</h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          @{username} isn't a Chapter One account.
-        </p>
-      </main>
+      <AppShell title="Profile">
+        <div className="card p-8 text-center">
+          <h1 className="text-lg font-semibold">User not found</h1>
+          <p className="mt-2 text-sm text-neutral-500">@{username} isn't a Chapter One account.</p>
+        </div>
+      </AppShell>
     );
   }
   if (error) {
     return (
-      <main className="mx-auto max-w-md px-6 py-16 text-center">
-        <p className="text-sm text-red-600">Couldn't load profile: {error}</p>
-      </main>
+      <AppShell title="Profile">
+        <div className="card p-8 text-center">
+          <p className="text-sm text-red-600 break-anywhere">Couldn't load profile: {error}</p>
+        </div>
+      </AppShell>
     );
   }
   if (!profile) {
-    return <main className="mx-auto max-w-md px-6 py-16 text-center text-sm text-neutral-500">Loading profile...</main>;
+    return (
+      <AppShell title="Profile">
+        <div className="py-10 text-center text-sm text-neutral-500">Loading profile…</div>
+      </AppShell>
+    );
   }
 
   const isSelf =
@@ -79,58 +86,50 @@ export default function ProfilePage({
     session.user.username === profile.username;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 md:px-6">
-      <header className="mb-8 flex items-start gap-5">
+    <AppShell title={profile.display_name}>
+      <header className="mb-6 flex items-start gap-4">
         {profile.avatar_url ? (
           <img
             src={profile.avatar_url}
             alt=""
-            className="h-20 w-20 rounded-full object-cover shadow"
+            className="h-20 w-20 shrink-0 rounded-full object-cover shadow"
           />
         ) : (
-          <span className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-neutral-200 text-2xl font-semibold">
+          <span className="inline-flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-2xl font-semibold">
             {profile.display_name.slice(0, 1).toUpperCase()}
           </span>
         )}
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{profile.display_name}</h1>
-          <p className="text-sm text-neutral-500">@{profile.username}</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold tracking-tight break-anywhere">{profile.display_name}</h1>
+          <p className="text-sm text-neutral-500 break-anywhere">@{profile.username}</p>
           <p className="mt-1 text-xs text-neutral-400">
             Joined {new Date(profile.joined_at).toLocaleDateString()}
           </p>
         </div>
-        {isSelf && (
-          <button
-            onClick={() => router.push("/settings")}
-            className="rounded-md bg-neutral-100 px-3 py-1 text-xs hover:bg-neutral-200"
-          >
-            Settings
-          </button>
-        )}
       </header>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <Stat label="Ideas" value={profile.total_analyses} />
-        <Stat label="🔥 streak" value={profile.current_streak} highlight={profile.current_streak >= 7} />
-        <Stat label="Longest streak" value={profile.longest_streak} />
-        <Stat label="🔥 received" value={profile.fires_received} />
+        <Stat label="🔥 Streak" value={profile.current_streak} highlight={profile.current_streak >= 7} />
+        <Stat label="Longest" value={profile.longest_streak} />
+        <Stat label="🔥 Received" value={profile.fires_received} />
       </section>
 
-      <section className="mt-10">
+      <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold text-neutral-700">Public reports</h2>
-        <div className="rounded-md border-2 border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
+        <div className="card p-6 text-center text-sm text-neutral-500">
           {isSelf ? "You haven't shared anything yet." : "Nothing shared yet."}
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
 
 function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
   return (
-    <div className={`rounded-md border p-3 ${highlight ? "border-orange-300 bg-orange-50" : "border-neutral-200 bg-white"}`}>
-      <div className="text-xs text-neutral-500">{label}</div>
-      <div className="text-2xl font-bold">{value}</div>
+    <div className={`rounded-xl border p-3 ${highlight ? "border-orange-300 bg-orange-50" : "border-neutral-200 bg-white"}`}>
+      <div className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className="mt-0.5 text-2xl font-bold">{value}</div>
     </div>
   );
 }

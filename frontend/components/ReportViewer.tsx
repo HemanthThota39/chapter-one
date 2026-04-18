@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import mermaid from "mermaid";
 import { reportRenderError, reportUrl } from "@/lib/api";
+import { reportPdfUrl } from "@/lib/analyses";
 
 type Props = { analysisId: string };
 
@@ -76,20 +77,29 @@ export default function ReportViewer({ analysisId }: Props) {
   }
 
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between border-b pb-3">
+    <div className="card p-5 md:p-6">
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-neutral-100 pb-3">
         <h2 className="text-sm font-semibold text-neutral-700">Analysis Report</h2>
         <a
-          href={reportUrl(analysisId)}
-          className="rounded-md bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+          href={reportPdfUrl(analysisId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary !py-1.5 text-xs"
         >
-          Download .md
+          Download PDF
         </a>
       </div>
       <div ref={ref} className="prose-report max-w-none">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
+          components={{
+            table: ({ node, ...props }) => (
+              <div className="table-scroll">
+                <table {...props} />
+              </div>
+            ),
+          }}
         >
           {markdown}
         </ReactMarkdown>

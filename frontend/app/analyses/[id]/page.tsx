@@ -8,9 +8,11 @@ import rehypeRaw from "rehype-raw";
 import {
   AnalysisDetail,
   fetchAnalysis,
+  reportPdfUrl,
   reportUrl,
   streamUrl,
 } from "@/lib/analyses";
+import AppShell from "@/components/AppShell";
 
 type ProgressEvent = { stage: string; percent: number; message: string };
 
@@ -54,19 +56,16 @@ export default function AnalysisDetailPage({
     }
   }, [id]);
 
-  useEffect(() => {
-    refreshDetail();
-  }, [refreshDetail]);
+  useEffect(() => { refreshDetail(); }, [refreshDetail]);
 
   useEffect(() => {
     if (!detail) return;
     if (detail.status === "done") {
-      // Fetch report markdown
       fetch(reportUrl(id), { credentials: "include" })
         .then((r) => r.text())
         .then((md) => setMarkdown(md))
         .catch((e) => setError((e as Error).message));
-      return; // no SSE needed
+      return;
     }
     if (detail.status === "failed") {
       setError(detail.error_message || "Analysis failed");
@@ -93,25 +92,26 @@ export default function AnalysisDetailPage({
     });
     es.addEventListener("ping", () => {/* keepalive */});
     es.addEventListener("close", () => es.close());
-    es.onerror = () => {/* browser auto-reconnects; terminal events close first */};
+    es.onerror = () => {/* browser auto-reconnects */};
     return () => es.close();
   }, [detail?.status, id, refreshDetail]);
 
   if (error) {
     return (
-      <main className="mx-auto max-w-xl px-6 py-16 text-center">
-        <p className="text-sm text-red-600">Error: {error}</p>
-        <button
-          onClick={() => router.back()}
-          className="mt-4 rounded-md border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-100"
-        >
-          Go back
-        </button>
-      </main>
+      <AppShell title="Analysis" width="wide">
+        <div className="card p-6 text-center">
+          <p className="text-sm text-red-600">{error}</p>
+          <button onClick={() => router.back()} className="btn-secondary mt-4">← Go back</button>
+        </div>
+      </AppShell>
     );
   }
   if (!detail) {
-    return <main className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-500">Loading...</main>;
+    return (
+      <AppShell title="Analysis" width="wide">
+        <div className="py-10 text-center text-sm text-neutral-500">Loading…</div>
+      </AppShell>
+    );
   }
 
   const percent = current?.percent ?? (detail.status === "done" ? 100 : 5);
@@ -121,28 +121,31 @@ export default function AnalysisDetailPage({
     : STAGE_LABELS[detail.status] ?? detail.status;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 md:px-6">
-      <header className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="text-xs text-neutral-500 hover:text-neutral-800"
-        >
-          ← Back
-        </button>
-        <h1 className="mt-2 text-xl font-bold tracking-tight">
-          {detail.idea_title || "Analysis in progress..."}
+    <AppShell title="Analysis" width="wide">
+      <header className="mb-5">
+        <button onClick={() => router.back()} className="btn-ghost -ml-2 !px-2 !py-1 text-xs">← Back</button>
+        <h1 className="mt-2 text-xl font-bold tracking-tight break-anywhere">
+          {detail.idea_title || "Analysis in progress…"}
         </h1>
         {detail.verdict && (
-          <div className="mt-1 text-sm text-neutral-600">
-            <span className="mr-3">Score: <strong>{detail.overall_score_100}/100</strong></span>
-            <span className="mr-3">Verdict: <strong>{detail.verdict}</strong></span>
-            <span className="text-neutral-400">Confidence: {detail.confidence}</span>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className={`rounded-full px-2.5 py-0.5 font-semibold ${verdictBadge(detail.verdict)}`}>
+              {detail.verdict}
+            </span>
+            {detail.overall_score_100 != null && (
+              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 font-semibold text-neutral-800">
+                {detail.overall_score_100}/100
+              </span>
+            )}
+            {detail.confidence && (
+              <span className="text-neutral-500">· Confidence {detail.confidence}</span>
+            )}
           </div>
         )}
       </header>
 
       {running && (
-        <section className="mb-6 rounded-md border border-neutral-200 bg-white p-4 shadow-sm">
+        <section className="card mb-5 p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="pipeline-spinner" aria-hidden />
@@ -151,10 +154,7 @@ export default function AnalysisDetailPage({
             <span className="text-xs font-medium text-neutral-500">{percent}%</span>
           </div>
           <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-            <div
-              className="pipeline-shimmer h-full transition-all duration-500"
-              style={{ width: `${Math.max(percent, 2)}%` }}
-            />
+            <div className="pipeline-shimmer h-full transition-all duration-500" style={{ width: `${Math.max(percent, 2)}%` }} />
           </div>
           {detailLine && (
             <div key={detailLine} className="pipeline-detail truncate text-xs text-neutral-500">
@@ -166,7 +166,7 @@ export default function AnalysisDetailPage({
             {events.map((e, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span className="mt-0.5 text-neutral-400">✓</span>
-                <span>
+                <span className="min-w-0">
                   <span className="font-medium text-neutral-800">
                     {STAGE_LABELS[e.stage] ?? e.stage}
                   </span>
@@ -179,23 +179,54 @@ export default function AnalysisDetailPage({
       )}
 
       {markdown && (
-        <section className="rounded-md border border-neutral-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between border-b pb-3">
+        <section className="card p-5 md:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-neutral-100 pb-3">
             <h2 className="text-sm font-semibold text-neutral-700">Report</h2>
             <a
-              href={reportUrl(id)}
-              className="rounded-md bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+              href={reportPdfUrl(id)}
+              className="btn-secondary !py-1.5 text-xs"
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              Download .md
+              <DownloadIcon /> Download PDF
             </a>
           </div>
           <div ref={renderTarget} className="prose-report max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                table: ({ node, ...props }) => (
+                  <div className="table-scroll">
+                    <table {...props} />
+                  </div>
+                ),
+              }}
+            >
               {markdown}
             </ReactMarkdown>
           </div>
         </section>
       )}
-    </main>
+    </AppShell>
+  );
+}
+
+function verdictBadge(v: string): string {
+  if (v === "STRONG INVEST") return "bg-green-100 text-green-800";
+  if (v === "CONDITIONAL") return "bg-blue-100 text-blue-800";
+  if (v === "WATCH") return "bg-yellow-100 text-yellow-800";
+  if (v === "PASS" || v === "HARD PASS") return "bg-red-100 text-red-800";
+  return "bg-neutral-100 text-neutral-700";
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
   );
 }
