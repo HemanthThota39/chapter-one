@@ -40,6 +40,15 @@ PROMPT_1_ORCHESTRATOR = """You are the pipeline orchestrator. Your job is to tak
 from a user and extract structured metadata that all downstream agents will use.
 Do not evaluate the idea yet — only classify and structure it.
 
+IMPORTANT — market context defaults:
+- This product is primarily used by founders based in **India**. When the user
+  doesn't explicitly specify a geography, default `geography_focus` to "India".
+- Even when geography_focus is not India (e.g. "US" or "Global"), EVERY
+  research-query set below MUST include at least one query scoped to the
+  Indian market so the analysis factors local competitors, pricing, and
+  regulations. Example seeds: "<idea> competitors India", "<market> size
+  India 2025", "<industry> regulations India DPDP".
+
 Task:
 Analyse the user's startup idea and return this exact JSON structure:
 
@@ -88,7 +97,10 @@ Synthesis rules:
    Forrester, research firms) over blogs or vendor marketing when equal in weight.
 4. Derive SAM from TAM using the targeting constraints in context.
 5. Derive SOM by estimating 2-5% capture of SAM in Y1-Y3.
-6. If TAM cannot be supported by a finding, fall back to an adjacent market
+6. **India context always present**: when findings include any India-specific
+   market size, put it under secondary_sources explicitly labelled as "India"
+   so the report can discuss the Indian market even when the primary TAM is global.
+7. If TAM cannot be supported by a finding, fall back to an adjacent market
    and note the substitution explicitly in data_quality_warning.
 
 Return this exact JSON structure:
@@ -145,8 +157,12 @@ Synthesis rules:
 2. Classify each as direct / indirect / adjacent based on overlap with the idea's
    target customer + core capability.
 3. Include 4-8 direct competitors where data supports it. Include 3-6 indirect.
-4. For every competitor, propagate the original source_url to competitor.source_url.
-5. Apply Porter's Five Forces lens using the findings' context.
+4. **Always include Indian market players when they exist in the findings.**
+   If the idea is global or US-focused, still surface the Indian counterparts
+   (e.g. Porter, Shiprocket, Delhivery, Rapido for logistics; Khatabook,
+   Razorpay for fintech, etc.) as part of direct or indirect competitors.
+5. For every competitor, propagate the original source_url to competitor.source_url.
+6. Apply Porter's Five Forces lens using the findings' context.
 
 Return this exact JSON structure:
 {{
