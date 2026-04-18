@@ -236,10 +236,9 @@ async def patch_me(user: CurrentUser, req: PatchMeRequest) -> dict[str, Any]:
 # ---------------------------------------------------------------------
 @router.get("/{username}")
 async def public_profile(username: str) -> dict[str, Any]:
-    # total_analyses is computed live from a COUNT(*) against analyses — the
-    # users.total_analyses column was a denormalised cache that no code
-    # actually maintains, so it drifted. A fast index-scan keeps this
-    # accurate without the sync burden.
+    # total_analyses = count of successfully completed analyses only. Failed
+    # or in-progress ones don't contribute to the public "idea count" stat —
+    # drafts-in-flight shouldn't inflate someone's profile.
     async with transaction() as conn:
         row = await conn.fetchrow(
             """SELECT u.id, u.username, u.display_name, u.avatar_url, u.avatar_kind,
@@ -250,6 +249,7 @@ async def public_profile(username: str) -> dict[str, Any]:
             LEFT JOIN (
                       SELECT owner_id, COUNT(*) AS n
                         FROM analyses
+                       WHERE status = 'done'
                        GROUP BY owner_id
                  ) cnt ON cnt.owner_id = u.id
                 WHERE u.username = $1""",

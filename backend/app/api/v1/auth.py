@@ -133,8 +133,8 @@ async def callback(request: Request, code: str, state: str) -> RedirectResponse:
 async def session(user: OptionalCurrentUser, response: Response) -> dict[str, Any]:
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "not authenticated")
-    # total_analyses is computed live (the users.total_analyses column is a
-    # stale denormalised cache nothing maintains — see users.py /{username}).
+    # total_analyses = only status='done' — matches the public profile stat
+    # (failed / in-progress don't count toward the idea counter).
     row = await fetchrow(
         """SELECT u.id, u.external_id, u.email, u.username, u.display_name,
                   u.avatar_url, u.avatar_kind, u.avatar_seed, u.timezone,
@@ -145,6 +145,7 @@ async def session(user: OptionalCurrentUser, response: Response) -> dict[str, An
         LEFT JOIN (
                   SELECT owner_id, COUNT(*) AS n
                     FROM analyses
+                   WHERE status = 'done'
                    GROUP BY owner_id
              ) cnt ON cnt.owner_id = u.id
             WHERE u.id = $1::uuid""",

@@ -336,11 +336,7 @@ function IdeaCard({
           {a.idea_title ?? "Untitled analysis"}
         </h3>
         <p className="mt-2 text-[11px] text-neutral-500">
-          {a.completed_at
-            ? `Completed ${new Date(a.completed_at).toLocaleDateString()}`
-            : a.submitted_at
-              ? `Submitted ${new Date(a.submitted_at).toLocaleDateString()}`
-              : ""}
+          {timestampLabel(a)}
         </p>
       </Link>
 
@@ -578,6 +574,15 @@ function PublicGrid({ items }: { items: PublicAnalysis[] }) {
       ))}
     </ul>
   );
+}
+
+function timestampLabel(a: AnalysisSummary): string {
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString();
+  if (a.status === "failed") return a.completed_at ? `Failed ${fmt(a.completed_at)}` : "Failed";
+  if (a.status === "cancelled") return a.completed_at ? `Cancelled ${fmt(a.completed_at)}` : "Cancelled";
+  if (a.status === "done" && a.completed_at) return `Completed ${fmt(a.completed_at)}`;
+  if (a.submitted_at) return `Submitted ${fmt(a.submitted_at)}`;
+  return "";
 }
 
 function StatusBadge({ status }: { status: string }) {
