@@ -135,3 +135,24 @@ body {
   60%  { transform: scale(1.15) rotate(3deg); }
   100% { transform: scale(1); }
 }
+
+/* Page transition — subtle fade+rise on route change. Re-keyed per route by the
+   shell so switching tabs feels intentional without being slow. */
+.page-enter {
+  animation: page-in 180ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Global view-transitions when the browser supports them (Chrome, Safari 18+).
+   Progressive enhancement — no-op elsewhere. */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

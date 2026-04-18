@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { FeedItem, toggleFire } from "@/lib/social";
 
 type Props = {
@@ -36,7 +37,7 @@ export default function PostCard({ item, onOpenComments }: Props) {
     <article className="card p-4">
       <header className="mb-3 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <a href={`/${item.owner.username}`} className="shrink-0">
+          <Link href={`/${item.owner.username}`} prefetch={false} className="shrink-0">
             {item.owner.avatar_url ? (
               <img src={item.owner.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
             ) : (
@@ -44,12 +45,12 @@ export default function PostCard({ item, onOpenComments }: Props) {
                 {item.owner.display_name.slice(0, 1).toUpperCase()}
               </span>
             )}
-          </a>
+          </Link>
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">
-              <a href={`/${item.owner.username}`} className="hover:underline">
+              <Link href={`/${item.owner.username}`} prefetch={false} className="hover:underline">
                 {item.owner.display_name}
-              </a>{" "}
+              </Link>{" "}
               <span className="text-neutral-500">@{item.owner.username}</span>
             </div>
             <div className="text-xs text-neutral-500">
@@ -60,9 +61,9 @@ export default function PostCard({ item, onOpenComments }: Props) {
       </header>
 
       <h3 className="mb-2 text-base font-semibold tracking-tight text-neutral-900 break-anywhere">
-        <a href={`/analyses/${item.analysis_id}`} className="hover:underline">
+        <Link href={`/analyses/${item.analysis_id}`} className="hover:underline">
           {item.idea_title ?? "Untitled analysis"}
-        </a>
+        </Link>
       </h3>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         {item.verdict && (
@@ -97,12 +98,12 @@ export default function PostCard({ item, onOpenComments }: Props) {
         >
           💬 <span className="font-semibold">{item.comment_count}</span>
         </button>
-        <a
+        <Link
           href={`/analyses/${item.analysis_id}`}
           className="ml-auto text-xs font-medium text-neutral-700 hover:underline"
         >
           View report →
-        </a>
+        </Link>
       </footer>
     </article>
   );

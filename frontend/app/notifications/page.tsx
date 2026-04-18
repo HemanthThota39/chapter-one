@@ -11,47 +11,54 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/social";
+import { invalidate, setCached, useSWR } from "@/lib/cache";
 import AppShell from "@/components/AppShell";
+
+type Page = { items: Notification[]; unread_count: number; next_cursor: string | null };
 
 export default function NotificationsPage() {
   const session = useSession();
   const router = useRouter();
-  const [items, setItems] = useState<Notification[]>([]);
-  const [unread, setUnread] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [localUpdates, setLocalUpdates] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (session.status === "unauthenticated") router.replace("/");
   }, [session.status, router]);
 
-  const load = async (f: "all" | "unread") => {
-    setLoading(true);
-    const data = await fetchNotifications(f);
-    setItems(data.items);
-    setUnread(data.unread_count);
-    setLoading(false);
+  const key =
+    session.status === "authenticated" ? `notifications:${filter}` : null;
+  const { data, loading, mutate } = useSWR<Page>(key, () => fetchNotifications(filter));
+
+  const items = (data?.items ?? []).map((n) =>
+    localUpdates[n.id] ? { ...n, read_at: localUpdates[n.id] } : n,
+  );
+  const unread = data?.unread_count ?? 0;
+
+  const refresh = async () => {
+    const d = await fetchNotifications(filter);
+    if (key) setCached(key, d);
+    mutate(d);
   };
 
-  useEffect(() => {
-    if (session.status === "authenticated") load(filter);
-  }, [session.status, filter]);
-
-  if (session.status !== "authenticated") {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-neutral-500">Loading...</main>;
-  }
-
   const onOpen = async (n: Notification) => {
-    if (!n.read_at) await markNotificationRead(n.id);
-    setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
-    setUnread((u) => Math.max(0, u - (n.read_at ? 0 : 1)));
+    if (!n.read_at) {
+      await markNotificationRead(n.id);
+      setLocalUpdates((u) => ({ ...u, [n.id]: new Date().toISOString() }));
+    }
+    invalidate("notifications:");
     const target = destinationUrl(n);
     if (target) router.push(target);
   };
 
+  if (session.status !== "authenticated") {
+    return <main className="flex min-h-screen items-center justify-center text-sm text-neutral-500">Loading…</main>;
+  }
+
   const onClear = async (id: string) => {
     await clearNotification(id);
-    setItems((prev) => prev.filter((x) => x.id !== id));
+    invalidate("notifications:");
+    await refresh();
   };
 
   return (
@@ -73,13 +80,13 @@ export default function NotificationsPage() {
         </div>
         <div className="flex gap-2 text-xs">
           <button
-            onClick={async () => { await markAllNotificationsRead(); await load(filter); }}
+            onClick={async () => { await markAllNotificationsRead(); invalidate("notifications:"); await refresh(); }}
             className="btn-ghost"
           >
             Mark all read
           </button>
           <button
-            onClick={async () => { await clearAllNotifications(); await load(filter); }}
+            onClick={async () => { await clearAllNotifications(); invalidate("notifications:"); await refresh(); }}
             className="btn-ghost"
           >
             Clear all
@@ -87,8 +94,8 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="py-10 text-center text-sm text-neutral-500">Loading…</div>
+      {loading && items.length === 0 ? (
+        <NotificationsSkeleton />
       ) : items.length === 0 ? (
         <div className="card p-8 text-center text-sm text-neutral-500">
           {filter === "unread" ? "All caught up ✨" : "No notifications yet."}
@@ -158,6 +165,24 @@ function destinationUrl(n: Notification): string | null {
   const p = n.payload as any;
   if (p?.analysis_id) return `/analyses/${p.analysis_id}`;
   return null;
+}
+
+function NotificationsSkeleton() {
+  return (
+    <ul className="space-y-2">
+      {[0, 1, 2].map((i) => (
+        <li key={i} className="card animate-pulse p-3">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-neutral-200" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 w-2/3 rounded bg-neutral-200" />
+              <div className="h-2.5 w-24 rounded bg-neutral-100" />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function timeago(iso: string): string {

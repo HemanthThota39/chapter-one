@@ -249,6 +249,48 @@ async def public_profile(username: str) -> dict[str, Any]:
     return {"user": data}
 
 
+@router.get("/{username}/analyses")
+async def public_user_analyses(username: str, limit: int = 40) -> dict[str, Any]:
+    """Return a user's public completed analyses for their profile grid.
+    Only public + done — private and in-flight ones never leak here.
+    """
+    limit = max(1, min(limit, 100))
+    async with transaction() as conn:
+        user_row = await conn.fetchrow(
+            "SELECT id FROM users WHERE username = $1", username,
+        )
+        if user_row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "user_not_found")
+        rows = await conn.fetch(
+            """SELECT a.id, a.idea_title, a.slug, a.verdict, a.overall_score_100,
+                      a.completed_at, a.submitted_at,
+                      p.id AS post_id, p.fire_count, p.comment_count
+                 FROM analyses a
+            LEFT JOIN posts p ON p.analysis_id = a.id
+                WHERE a.owner_id = $1::uuid
+                  AND a.visibility = 'public'
+                  AND a.status = 'done'
+             ORDER BY COALESCE(a.completed_at, a.submitted_at) DESC
+                LIMIT $2""",
+            user_row["id"], limit,
+        )
+    items = [
+        {
+            "id": str(r["id"]),
+            "idea_title": r["idea_title"],
+            "slug": r["slug"],
+            "verdict": r["verdict"],
+            "overall_score_100": r["overall_score_100"],
+            "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
+            "post_id": str(r["post_id"]) if r["post_id"] else None,
+            "fire_count": r["fire_count"] or 0,
+            "comment_count": r["comment_count"] or 0,
+        }
+        for r in rows
+    ]
+    return {"items": items}
+
+
 # ---------------------------------------------------------------------
 # DELETE /me — hard delete
 # ---------------------------------------------------------------------

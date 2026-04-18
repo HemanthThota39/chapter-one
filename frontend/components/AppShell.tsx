@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { notificationsStreamUrl } from "@/lib/social";
 
@@ -15,7 +16,6 @@ type Props = {
 
 export default function AppShell({ children, title, width = "narrow" }: Props) {
   const session = useSession();
-  const router = useRouter();
   const pathname = usePathname() || "/";
   const [unread, setUnread] = useState(0);
 
@@ -60,10 +60,11 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/70">
         <div className={`mx-auto flex h-14 ${maxW} items-center justify-between px-4 md:px-6`}>
-          <button
-            onClick={() => router.push(user.username ? `/${user.username}` : "/feed")}
-            className="flex items-center gap-2 rounded-full py-1 pr-2 transition hover:bg-neutral-100"
+          <Link
+            href={user.username ? `/${user.username}` : "/feed"}
+            prefetch
             aria-label="Profile"
+            className="flex items-center gap-2 rounded-full py-1 pr-2 transition hover:bg-neutral-100"
           >
             {user.avatar_url ? (
               <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -81,7 +82,7 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
                 <span>{streak}</span>
               </span>
             )}
-          </button>
+          </Link>
 
           {title && (
             <h1 className="truncate text-sm font-semibold tracking-tight text-neutral-800">
@@ -89,18 +90,19 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
             </h1>
           )}
 
-          <button
-            onClick={() => router.push("/settings")}
-            className="rounded-full p-2 text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
+          <Link
+            href="/settings"
+            prefetch
             aria-label="Settings"
+            className="rounded-full p-2 text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
           >
             <SettingsIcon />
-          </button>
+          </Link>
         </div>
       </header>
 
       {/* Content */}
-      <div className={`mx-auto w-full ${maxW} px-4 py-5 md:px-6`}>
+      <div key={pathname} className={`page-enter mx-auto w-full ${maxW} px-4 py-5 md:px-6`}>
         {children}
       </div>
 
@@ -115,7 +117,6 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
             active={isActive("/feed")}
             label="Feed"
             icon={<HomeIcon active={isActive("/feed")} />}
-            onClick={() => router.push("/feed")}
           />
           <NavTab
             href="/notifications"
@@ -123,31 +124,29 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
             label="Alerts"
             badge={unread}
             icon={<BellIcon active={isActive("/notifications")} />}
-            onClick={() => router.push("/notifications")}
           />
           {/* Hero "+" — visually centered, elevated, rounded */}
           <div className="relative flex items-start justify-center">
-            <button
-              onClick={() => router.push("/new")}
+            <Link
+              href="/new"
+              prefetch
               aria-label="New idea"
               className="-translate-y-4 rounded-full bg-neutral-900 p-4 text-white shadow-lg shadow-neutral-900/25 ring-4 ring-white transition active:scale-95 hover:bg-neutral-700"
             >
               <PlusIcon />
-            </button>
+            </Link>
           </div>
           <NavTab
             href={`/${user.username ?? ""}`}
             active={isActive(`/${user.username}`)}
             label="Profile"
             icon={<UserIcon active={isActive(`/${user.username}`)} />}
-            onClick={() => router.push(`/${user.username ?? ""}`)}
           />
           <NavTab
             href="/settings"
             active={pathname === "/settings"}
             label="Settings"
             icon={<SettingsIcon active={pathname === "/settings"} />}
-            onClick={() => router.push("/settings")}
           />
         </div>
       </nav>
@@ -156,22 +155,22 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
 }
 
 function NavTab({
+  href,
   active,
   label,
   icon,
   badge,
-  onClick,
 }: {
   href: string;
   active: boolean;
   label: string;
   icon: React.ReactNode;
   badge?: number;
-  onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <Link
+      href={href}
+      prefetch
       className={`relative flex h-16 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition ${
         active ? "text-neutral-900" : "text-neutral-500 hover:text-neutral-800"
       }`}
@@ -185,7 +184,7 @@ function NavTab({
         )}
       </div>
       <span>{label}</span>
-    </button>
+    </Link>
   );
 }
 
