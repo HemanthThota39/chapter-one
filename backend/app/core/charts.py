@@ -266,7 +266,8 @@ def render_competitive_landscape(data: dict[str, Any]) -> str | None:
     ax.set_xlabel("Market presence  →", fontsize=9)
     ax.set_ylabel("Product differentiation  →", fontsize=9)
     ax.set_title("Competitive positioning (heuristic from funding + threat signals)", fontsize=10, fontweight="bold", pad=10)
-    ax.set_xticks([]); ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_color(COLOR_GRID)
 
@@ -310,7 +311,8 @@ def render_risk_matrix(data: dict[str, Any]) -> str | None:
     ax.set_xlabel("Probability  →", fontsize=9)
     ax.set_ylabel("Impact  →", fontsize=9)
     ax.set_title("Risk matrix", fontsize=11, fontweight="bold", pad=10)
-    ax.set_xticks([]); ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_color(COLOR_GRID)
 
