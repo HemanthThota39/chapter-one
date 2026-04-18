@@ -17,6 +17,14 @@ type PublicProfile = {
   fires_received: number;
 };
 
+// Paths reserved by the app — accidental collisions here should show a
+// proper 404 rather than a "user not found" (confusing).
+const RESERVED_PATHS = new Set([
+  "settings", "onboarding", "feed", "new", "analyses",
+  "api", "login", "logout", "signup", "me",
+  "favicon.ico", "robots.txt", "sitemap.xml",
+]);
+
 export default function ProfilePage({
   params,
 }: {
@@ -30,6 +38,11 @@ export default function ProfilePage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reserved paths: bounce to /feed so we don't look up "settings" etc. as a user.
+    if (RESERVED_PATHS.has(username.toLowerCase())) {
+      router.replace("/feed");
+      return;
+    }
     fetch(`${API_BASE}/api/v1/users/${username}`, { credentials: "include" })
       .then(async (r) => {
         if (r.status === 404) { setError("not_found"); return; }
@@ -38,7 +51,7 @@ export default function ProfilePage({
         setProfile(data.user);
       })
       .catch((e) => setError(e.message));
-  }, [username]);
+  }, [username, router]);
 
   if (error === "not_found") {
     return (

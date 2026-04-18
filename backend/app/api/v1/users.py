@@ -19,8 +19,9 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field, constr
 
+from app.api.v1.auth import _set_session_cookie
 from app.auth.dependencies import CurrentUser
-from app.auth.session import COOKIE_NAME
+from app.auth.session import COOKIE_NAME, create_session_cookie
 from app.config import get_settings
 from app.db import fetchrow, transaction
 
@@ -81,6 +82,7 @@ class PublicProfile(BaseModel):
 @router.post("/onboard", status_code=status.HTTP_201_CREATED)
 async def onboard(
     user: CurrentUser,
+    response: Response,
     username: Annotated[str, Form()],
     display_name: Annotated[str, Form()],
     avatar_kind: Annotated[Literal["upload", "library", "initials"], Form()] = "initials",
@@ -159,6 +161,17 @@ async def onboard(
     data = dict(row)
     data["id"] = str(data["id"])
     data["joined_at"] = data.pop("created_at").isoformat()
+
+    # Re-issue the session cookie now that the user has a username —
+    # otherwise dependency-injected `user.username` stays None until the old
+    # cookie expires, and /submit guards fail with "complete_onboarding_first".
+    new_token, _ = create_session_cookie(
+        user_id=user.id,
+        external_id=user.external_id,
+        username=data["username"],
+    )
+    _set_session_cookie(response, new_token)
+
     return {"user": data}
 
 
