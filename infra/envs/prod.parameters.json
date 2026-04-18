@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "env":      { "value": "prod" },
+    "location": { "value": "centralindia" },
+    "aiFoundryEndpoint": { "value": "https://testingclaudecode.cognitiveservices.azure.com/" },
+    "aiFoundryDeployment": { "value": "gpt-5.3-chat" },
+    "aiFoundryApiVersion": { "value": "2025-03-01-preview" }
+  }
+}

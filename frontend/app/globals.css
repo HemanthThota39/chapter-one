@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}
+
+.prose-report h1 { @apply text-2xl font-bold mt-8 mb-4; }
+.prose-report h2 { @apply text-xl font-semibold mt-6 mb-3; }
+.prose-report h3 { @apply text-lg font-semibold mt-4 mb-2; }
+.prose-report p { @apply my-2 leading-relaxed; }
+.prose-report ul { @apply list-disc ml-6 my-2; }
+.prose-report ol { @apply list-decimal ml-6 my-2; }
+.prose-report table { @apply border-collapse my-3 text-sm; }
+.prose-report th, .prose-report td { @apply border border-neutral-300 px-3 py-1.5; }
+.prose-report th { @apply bg-neutral-100 font-semibold; }
+.prose-report blockquote { @apply border-l-4 border-neutral-300 pl-3 italic my-2; }
+.prose-report code { @apply bg-neutral-100 px-1 py-0.5 rounded text-sm; }
+.prose-report pre { @apply bg-neutral-100 p-3 rounded overflow-x-auto my-3; }
+.prose-report .chart-block { @apply my-6 overflow-x-auto; }
+.prose-report .chart-block svg { @apply max-w-full h-auto mx-auto block; }
+
+/* Spinner — pure CSS, zero JS overhead */
+.pipeline-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: pipeline-spin 0.9s linear infinite;
+  display: inline-block;
+}
+
+@keyframes pipeline-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Sub-step detail — single element, fades in on change */
+.pipeline-detail {
+  animation: pipeline-detail-in 200ms ease-out;
+  will-change: opacity, transform;
+}
+
+@keyframes pipeline-detail-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Indeterminate shimmer bar — plays continuously while running so the user
+   knows the process is alive even between discrete stage updates. */
+.pipeline-shimmer {
+  background: linear-gradient(
+    90deg,
+    #111827 0%, #111827 40%,
+    #6b7280 50%,
+    #111827 60%, #111827 100%
+  );
+  background-size: 200% 100%;
+  animation: pipeline-shimmer 1.6s linear infinite;
+}
+
+@keyframes pipeline-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
