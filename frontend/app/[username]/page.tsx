@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { API_BASE, useSession } from "@/lib/session";
-import { AnalysisSummary, deleteAnalysis, fetchMyAnalyses, reportPdfUrl } from "@/lib/analyses";
+import { AnalysisSummary, deleteAnalysis, fetchMyAnalyses, reportPdfUrl, retryAnalysis } from "@/lib/analyses";
 import { toggleFire } from "@/lib/social";
 import AppShell from "@/components/AppShell";
 
@@ -187,6 +187,11 @@ export default function ProfilePage({
               onFireToggle={(id, fired, fc) => {
                 setMine((prev) => (prev ?? []).map((a) => a.id === id ? { ...a, i_fired: fired, fire_count: fc } : a));
               }}
+              onRetry={async (id) => {
+                await retryAnalysis(id);
+                setMine((prev) => (prev ?? []).map((a) => a.id === id ? { ...a, status: "queued" } : a));
+                router.push(`/analyses/${id}`);
+              }}
             />
           )
         ) : (
@@ -210,6 +215,11 @@ export default function ProfilePage({
                     setMine((prev) => (prev ?? []).filter((a) => a.id !== id));
                   }}
                   onFireToggle={() => {/* failed items have no post, footer doesn't render */}}
+                  onRetry={async (id) => {
+                    await retryAnalysis(id);
+                    setMine((prev) => (prev ?? []).map((a) => a.id === id ? { ...a, status: "queued" } : a));
+                    router.push(`/analyses/${id}`);
+                  }}
                 />
               </div>
             )}
@@ -252,10 +262,12 @@ function MineGrid({
   items,
   onDelete,
   onFireToggle,
+  onRetry,
 }: {
   items: AnalysisSummary[];
   onDelete: (id: string) => Promise<void>;
   onFireToggle: (id: string, fired: boolean, count: number) => void;
+  onRetry: (id: string) => Promise<void>;
 }) {
   if (items.length === 0) {
     return (
@@ -268,20 +280,22 @@ function MineGrid({
   return (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {items.map((a) => (
-        <IdeaCard key={a.id} a={a} onDelete={onDelete} onFireToggle={onFireToggle} />
+        <IdeaCard key={a.id} a={a} onDelete={onDelete} onFireToggle={onFireToggle} onRetry={onRetry} />
       ))}
     </ul>
   );
 }
 
 function IdeaCard({
-  a, onDelete, onFireToggle,
+  a, onDelete, onFireToggle, onRetry,
 }: {
   a: AnalysisSummary;
   onDelete: (id: string) => Promise<void>;
   onFireToggle: (id: string, fired: boolean, count: number) => void;
+  onRetry: (id: string) => Promise<void>;
 }) {
   const isDone = a.status === "done";
+  const isFailed = a.status === "failed" || a.status === "cancelled";
   return (
     <li className="relative">
       <Link href={`/analyses/${a.id}`} className="card block p-4 pb-3 transition hover:shadow-md">
@@ -319,7 +333,9 @@ function IdeaCard({
         id={a.id}
         title={a.idea_title}
         canDownload={isDone}
+        canRetry={isFailed}
         onDelete={onDelete}
+        onRetry={onRetry}
       />
     </li>
   );
@@ -375,15 +391,17 @@ function CardFooter({
 }
 
 function CardMenu({
-  id, title, canDownload, onDelete,
+  id, title, canDownload, canRetry, onDelete, onRetry,
 }: {
   id: string;
   title: string | null;
   canDownload: boolean;
+  canRetry: boolean;
   onDelete: (id: string) => Promise<void>;
+  onRetry: (id: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | "delete" | "retry">(false);
 
   useEffect(() => {
     if (!open) return;
@@ -398,11 +416,25 @@ function CardMenu({
     if (busy) return;
     const label = title ? `"${title}"` : "this analysis";
     if (!window.confirm(`Delete ${label}? This removes the report, post, comments, and fires. Cannot be undone.`)) return;
-    setBusy(true);
+    setBusy("delete");
     try {
       await onDelete(id);
     } catch (err) {
       alert((err as Error).message || "Delete failed");
+      setBusy(false);
+    }
+  };
+
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy) return;
+    setBusy("retry");
+    setOpen(false);
+    try {
+      await onRetry(id);
+    } catch (err) {
+      alert((err as Error).message || "Retry failed");
       setBusy(false);
     }
   };
@@ -421,6 +453,15 @@ function CardMenu({
           onClick={(e) => e.stopPropagation()}
           className="absolute right-0 top-9 z-10 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg"
         >
+          {canRetry && (
+            <button
+              onClick={handleRetry}
+              disabled={!!busy}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-neutral-800 transition hover:bg-neutral-50 disabled:opacity-50"
+            >
+              <RetryIcon /> {busy === "retry" ? "Retrying…" : "Retry analysis"}
+            </button>
+          )}
           {canDownload && (
             <a
               href={reportPdfUrl(id)}
@@ -434,10 +475,10 @@ function CardMenu({
           )}
           <button
             onClick={handleDelete}
-            disabled={busy}
+            disabled={!!busy}
             className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:opacity-50"
           >
-            <TrashIcon /> {busy ? "Deleting…" : "Delete"}
+            <TrashIcon /> {busy === "delete" ? "Deleting…" : "Delete"}
           </button>
         </div>
       )}
@@ -449,6 +490,15 @@ function MenuDownloadIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function RetryIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
     </svg>
   );
 }

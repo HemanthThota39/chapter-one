@@ -150,7 +150,24 @@ Estimated **10-14 weeks to launch** for one solo builder. Parallelizable if cont
 
 ---
 
-## M4 — Debate + section patches (≈ Week 9-10)
+## M4 — (shelved 2026-04-19 — see `12-backlog.md`)
+
+> This milestone has been dropped in favour of two ideas in
+> `12-backlog.md`:
+>
+> 1. **AI idea generation** — multi-agent committee debates, pulls
+>    sources, converges on one startup idea; then runs the existing
+>    report pipeline on it.
+> 2. **Improvement suggestions** — add a "how to make this stronger"
+>    section at the bottom of every report, targeting the lowest-scoring
+>    dimensions.
+>
+> Both deliver more value for the same engineering budget and reuse
+> the existing pipeline. The original spec below is preserved for
+> reference only — rebuild only if a concrete post-launch need
+> surfaces.
+
+## M4 (original spec, shelved) — Debate + section patches (≈ Week 9-10)
 
 **Goal**: the novel surface — debate an agent on a report and see the report update.
 

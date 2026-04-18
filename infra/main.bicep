@@ -70,6 +70,7 @@ var blobAccountName = 'co${env}blob${substring(uniqueString(resourceGroup().id),
 var swaName        = 'co-${env}-web'
 var sbNamespaceName = '${namePrefix}-sb-${regionCode}-${substring(uniqueString(resourceGroup().id), 0, 4)}'
 var workerJobName   = '${namePrefix}-worker-analysis-${regionCode}'
+var migrateJobName  = '${namePrefix}-job-migrate'
 
 // ---------------------------------------------------------------------
 // Monitoring — LA workspace + App Insights (set up FIRST)
@@ -221,6 +222,43 @@ module serviceBus 'modules/service-bus.bicep' = {
       apiIdentity.outputs.principalId   // API sends; worker (same MI) receives
     ]
   }
+}
+
+// ---------------------------------------------------------------------
+// DB migration job — Container Apps Job, manual trigger.
+// Run via `az containerapp job start -n <name> -g <rg>` from CI after a
+// new backend image is pushed. Uses `backend:latest` so it always picks
+// up the latest migrations — the deploy workflow tags every build as
+// :latest alongside the SHA tag.
+// ---------------------------------------------------------------------
+module migrateJob 'modules/container-app-job.bicep' = {
+  name: 'migrate-job'
+  params: {
+    name:            migrateJobName
+    location:        location
+    environmentId:   caEnv.outputs.id
+    image:           '${acr.outputs.loginServer}/backend:latest'
+    managedIdentityId: apiIdentity.outputs.id
+    managedIdentityClientId: apiIdentity.outputs.clientId
+    acrLoginServer:  acr.outputs.loginServer
+    keyVaultName:    kvName
+    triggerType:     'Manual'
+    parallelism:     1
+    replicaCompletionCount: 1
+    replicaTimeout:  600   // 10 min cap — alembic typically ≤ 30s
+    replicaRetryLimit: 0
+    extraEnvVars: [
+      { name: 'CHAPTER_ONE_ENV', value: env }
+      // AZURE_OPENAI_API_KEY is required by config loader but unused at migration time.
+      { name: 'AZURE_OPENAI_ENDPOINT', value: aiFoundryEndpoint }
+      { name: 'AZURE_OPENAI_API_KEY', value: 'unused-in-migration' }
+    ]
+    command: [ 'alembic' ]
+    args:    [ 'upgrade', 'head' ]
+  }
+  dependsOn: [
+    secretPgConnection
+  ]
 }
 
 // ---------------------------------------------------------------------

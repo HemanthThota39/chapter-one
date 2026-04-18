@@ -70,6 +70,17 @@ export function reportPdfUrl(id: string): string {
   return `${API_BASE}/api/v1/analyses/${id}/report.pdf`;
 }
 
+export async function retryAnalysis(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/analyses/${id}/retry`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || `Retry failed (${res.status})`);
+  }
+}
+
 export async function deleteAnalysis(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, {
     method: "DELETE",

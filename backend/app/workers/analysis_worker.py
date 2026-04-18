@@ -125,6 +125,23 @@ async def _process_one(
             duration_ms = int((time.perf_counter() - started) * 1000)
             logger.event("pipeline.complete", duration_ms=duration_ms)
     except Exception as e:
+        # Safety-gate rejection is a user-facing "bad input" signal, not a
+        # crash. Keep the message friendly and don't dump a stack trace.
+        from app.pipeline.agents.safety_gate import SafetyRejected
+        if isinstance(e, SafetyRejected):
+            v = e.verdict
+            friendly_map = {
+                "chitchat": "Please submit a concrete startup or product idea.",
+                "injection": "This input looks like an attempt to manipulate the analyser. Please describe a real startup idea.",
+                "harmful": "We can't analyse that kind of content. Please submit a startup or product idea.",
+                "empty": "The idea text was empty or too short to analyse.",
+                "other": "This doesn't look like a startup idea we can analyse.",
+            }
+            friendly = friendly_map.get(v.category, friendly_map["other"])
+            log.info("safety gate rejected: category=%s reason=%s", v.category, v.reason)
+            await store.mark_failed(analysis_id, error_message=friendly)
+            await store.publish_event(analysis_id, kind="progress", stage="error", percent=100, message=friendly)
+            return
         log.exception("pipeline error\n%s", traceback.format_exc())
         await store.mark_failed(analysis_id, error_message=str(e))
         await store.publish_event(analysis_id, kind="progress", stage="error", percent=100, message=str(e)[:200])

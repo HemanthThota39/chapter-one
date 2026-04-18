@@ -23,6 +23,7 @@ from app.pipeline.agents.problem_pmf import ProblemPmfAgent
 from app.pipeline.agents.regulatory import RegulatoryAgent
 from app.pipeline.agents.report_compiler import ReportCompilerAgent
 from app.pipeline.agents.risk_moat import RiskMoatAgent
+from app.pipeline.agents.safety_gate import SafetyGate, SafetyRejected
 from app.pipeline.agents.scoring import ScoringAgent
 from app.pipeline.context import AnalysisBundle, FullBundle, ResearchBundle
 from app.pipeline.research_engine import ResearchEngine
@@ -47,6 +48,7 @@ class StartupAnalysisPipeline:
         self.engine = ResearchEngine(
             llm, concurrency=get_settings().research_concurrency
         )
+        self.safety_gate = SafetyGate(llm)
         self.orchestrator = OrchestratorAgent(llm)
         self.market = MarketSizingAgent(llm, self.engine)
         self.competitors = CompetitiveIntelAgent(llm, self.engine)
@@ -111,6 +113,11 @@ class StartupAnalysisPipeline:
                     log.exception("Failed to build summary.md")
 
     async def _run_inner(self, analysis_id: str, idea_text: str) -> PipelineResult:
+        await self._publish(analysis_id, "classifying", 2, "Validating input...")
+        verdict = await self.safety_gate.run(idea_text)
+        if not verdict.valid:
+            raise SafetyRejected(verdict)
+
         await self._publish(analysis_id, "classifying", 5, "Classifying idea...")
         metadata = await self.orchestrator.run(idea_text)
 

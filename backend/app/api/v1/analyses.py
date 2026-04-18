@@ -275,6 +275,41 @@ async def patch(analysis_id: str, user: CurrentUser, req: PatchAnalysisRequest) 
     return await get(analysis_id, user)
 
 
+@router.post("/{analysis_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+async def retry(analysis_id: str, user: CurrentUser) -> dict:
+    """Re-enqueue a failed/cancelled analysis for the owner.
+
+    Resets status → queued, clears error, and pushes a fresh Service Bus
+    message. No new row — we reuse the original idea_text so the user
+    doesn't have to re-type.
+    """
+    row = await store.get_analysis(analysis_id)
+    if row is None or str(row["owner_id"]) != str(user.id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not_found")
+    if row["status"] not in ("failed", "cancelled"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "not_retryable")
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE analyses
+                  SET status = 'queued', error_message = NULL,
+                      started_at = NULL, completed_at = NULL
+                WHERE id = $1::uuid""",
+            analysis_id,
+        )
+
+    try:
+        await get_queue().enqueue_analysis(analysis_id=analysis_id, owner_id=user.id)
+    except Exception as e:
+        log.exception("Failed to re-enqueue analysis")
+        await store.mark_failed(analysis_id, f"enqueue_failed: {e}")
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "queue_unavailable") from None
+
+    await store.publish_event(analysis_id, kind="progress", stage="queued", percent=0, message="Queued (retry)")
+    return {"analysis_id": analysis_id, "status": "queued"}
+
+
 @router.delete("/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete(analysis_id: str, user: CurrentUser) -> Response:
     row = await store.get_analysis(analysis_id)
