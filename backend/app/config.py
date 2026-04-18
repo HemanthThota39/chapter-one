@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     # Worker role (process mode selector)
     worker_role: str = Field("", alias="WORKER_ROLE")
 
+    # ARM fallback trigger — API fires a job start via ARM as a belt+suspenders
+    # complement to KEDA. All three must be set for the fallback to fire.
+    azure_subscription_id: str = Field("", alias="AZURE_SUBSCRIPTION_ID")
+    azure_resource_group: str = Field("", alias="AZURE_RESOURCE_GROUP")
+    worker_job_name: str = Field("", alias="WORKER_JOB_NAME")
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

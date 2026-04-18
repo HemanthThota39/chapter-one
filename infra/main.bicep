@@ -360,6 +360,9 @@ module apiApp 'modules/container-app-api.bicep' = {
     environmentDefaultDomain: caEnv.outputs.defaultDomain
     serviceBusNamespace: '${serviceBus.outputs.namespaceName}.servicebus.windows.net'
     serviceBusQueueAnalyses: serviceBus.outputs.queueName
+    azureSubscriptionId: subscription().subscriptionId
+    azureResourceGroup: resourceGroup().name
+    workerJobName: workerJobName
   }
   dependsOn: [
     secretAiFoundryKey
