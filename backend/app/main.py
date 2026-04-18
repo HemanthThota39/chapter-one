@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.analysis import router as analysis_router
 from app.api.telemetry import router as telemetry_router
@@ -50,6 +52,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handler — log the full traceback and ensure the 500
+# response carries CORS headers so the browser doesn't mask the real error
+# as "CORS: No 'Access-Control-Allow-Origin' header".
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logging.error(
+        "Unhandled exception on %s %s:\n%s",
+        request.method, request.url.path,
+        "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+    )
+    origin = request.headers.get("origin", "")
+    allowed = origin if origin in settings.cors_origin_list else ""
+    headers = {}
+    if allowed:
+        headers["Access-Control-Allow-Origin"] = allowed
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Vary"] = "Origin"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "internal_error", "error": type(exc).__name__, "message": str(exc)[:300]},
+        headers=headers,
+    )
 
 # v1 — new auth + users + analyses + social
 app.include_router(auth_router_v1)

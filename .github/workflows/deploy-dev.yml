@@ -40,8 +40,33 @@ jobs:
           az acr build \
             --registry ${{ steps.acr.outputs.name }} \
             --image "backend:${{ steps.tag.outputs.tag }}" \
+            --image "backend:latest" \
             --file backend/Dockerfile \
             backend/
+
+      - name: Run DB migrations
+        # Alembic migrations live in the backend image; run them after the
+        # new image is built so schema matches what the app will serve.
+        # Using a separate job resource so schema drift surfaces via its
+        # Succeeded/Failed status. Job config is managed out-of-band.
+        run: |
+          az containerapp job start -n co-dev-job-migrate -g "$RG" -o tsv --query name
+          # Poll until the just-started execution finishes (Alembic typically ≤ 30s).
+          # Find the newest execution started in the last 5 minutes.
+          for i in $(seq 1 60); do
+            sleep 10
+            RESULT=$(az containerapp job execution list -n co-dev-job-migrate -g "$RG" \
+              --query "[0].{name:name,status:properties.status}" -o tsv)
+            STATUS=$(echo "$RESULT" | awk '{print $2}')
+            echo "migrate status: $STATUS"
+            if [ "$STATUS" = "Succeeded" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ]; then
+              echo "::error::DB migration failed"
+              exit 1
+            fi
+          done
+          echo "::error::DB migration timed out"
+          exit 1
 
   deploy-infra:
     name: Bicep deploy (dev)
