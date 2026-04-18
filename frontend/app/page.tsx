@@ -1,80 +1,75 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import AnalyzerForm from "@/components/AnalyzerForm";
-import ProgressStream from "@/components/ProgressStream";
-import ReportViewer from "@/components/ReportViewer";
-import { startAnalysis } from "@/lib/api";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { loginUrl, useSession } from "@/lib/session";
 
-export default function HomePage() {
-  const [analysisId, setAnalysisId] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+export default function LandingPage() {
+  const session = useSession();
+  const router = useRouter();
 
-  const handleStart = useCallback(async (idea: string) => {
-    setRunning(true);
-    setCompleted(false);
-    setErrorMsg(null);
-    setAnalysisId(null);
-    try {
-      const { analysis_id } = await startAnalysis(idea);
-      setAnalysisId(analysis_id);
-    } catch (e) {
-      setErrorMsg((e as Error).message);
-      setRunning(false);
+  useEffect(() => {
+    if (session.status === "authenticated") {
+      if (!session.user.onboarding_complete) router.replace("/onboarding");
+      else router.replace("/feed");
     }
-  }, []);
+  }, [session, router]);
 
-  const handleComplete = useCallback(() => {
-    setCompleted(true);
-    setRunning(false);
-  }, []);
-
-  const handleError = useCallback((msg: string) => {
-    setErrorMsg(msg);
-    setRunning(false);
-  }, []);
+  if (session.status === "loading") {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <div className="text-sm text-neutral-500">Loading...</div>
+      </main>
+    );
+  }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
-          Startup Analyzer
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600">
-          Composite VC Framework · 10 dimensions · grounded in live web search
-        </p>
-      </header>
-
-      <section className="mb-6 rounded-md border border-neutral-200 bg-white p-6 shadow-sm">
-        <AnalyzerForm onStart={handleStart} disabled={running} />
-      </section>
-
-      {errorMsg && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {errorMsg}
+    <main className="flex min-h-screen flex-col">
+      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 py-16">
+        <div className="mb-10">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white">
+            <span>Chapter One</span>
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
+            It all starts with Chapter One.
+          </h1>
+          <p className="mt-4 text-base text-neutral-600 md:text-lg">
+            A place for you and your friends to brainstorm startup ideas, get
+            rigorous AI-grounded analysis, debate the verdict with facts, and
+            share what you build.
+          </p>
         </div>
-      )}
 
-      {analysisId && (
-        <section className="mb-6">
-          <ProgressStream
-            analysisId={analysisId}
-            onComplete={handleComplete}
-            onError={handleError}
-          />
-        </section>
-      )}
+        <div className="space-y-3">
+          <a
+            href={loginUrl()}
+            className="block w-full rounded-md bg-neutral-900 px-5 py-3 text-center text-sm font-medium text-white shadow-sm hover:bg-neutral-700"
+          >
+            Continue with Google
+          </a>
+          <p className="text-center text-xs text-neutral-500">
+            By continuing you agree to the idea that half-baked ideas are the best kind.
+          </p>
+        </div>
 
-      {completed && analysisId && (
-        <section>
-          <ReportViewer analysisId={analysisId} />
-        </section>
-      )}
+        <ul className="mt-12 space-y-3 text-sm text-neutral-600">
+          <li>
+            <span className="font-semibold text-neutral-800">Grounded research.</span>{" "}
+            Every report cites real, recent sources. No hallucinated markets.
+          </li>
+          <li>
+            <span className="font-semibold text-neutral-800">Debatable.</span>{" "}
+            Push back on a verdict. If you're right, the report updates.
+          </li>
+          <li>
+            <span className="font-semibold text-neutral-800">Shareable.</span>{" "}
+            PDF exports, public links, friend-feed reactions.
+          </li>
+        </ul>
+      </div>
 
-      <footer className="mt-12 text-center text-xs text-neutral-500">
-        Powered by gpt-5.3-chat on Azure AI Foundry · Native web_search tool
+      <footer className="border-t border-neutral-200 py-6 text-center text-xs text-neutral-400">
+        Chapter One · built for 5 friends · open source · MIT licensed
       </footer>
     </main>
   );

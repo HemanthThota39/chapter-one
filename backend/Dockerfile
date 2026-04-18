@@ -15,8 +15,10 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -e .
 
-# Copy app code
+# Copy app code + alembic (migrations run as a separate Container App Job)
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
 
 # Non-root user
 RUN useradd --uid 10001 --no-create-home --shell /sbin/nologin appuser \

@@ -8,8 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.analysis import router as analysis_router
 from app.api.telemetry import router as telemetry_router
+from app.api.v1.auth import router as auth_router_v1
+from app.api.v1.users import router as users_router_v1
 from app.config import get_settings
-from app.storage.db import close_pool, ensure_schema
+from app.db.pool import close_pool, get_pool
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,11 +24,12 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        await ensure_schema()
-        logging.info("Postgres connected — reports will be persisted.")
+        await get_pool()
+        logging.info("Postgres connected — users + all features enabled.")
     except Exception as e:  # noqa: BLE001
         logging.warning(
-            "Postgres unavailable — running in memory-only mode. (%s)", type(e).__name__
+            "Postgres unavailable — running without DB features. (%s)",
+            type(e).__name__,
         )
     yield
     try:
@@ -35,7 +38,7 @@ async def lifespan(app: FastAPI):
         pass
 
 
-app = FastAPI(title="Startup Analyzer", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Chapter One API", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +48,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# v1 — new auth + users
+app.include_router(auth_router_v1)
+app.include_router(users_router_v1)
+
+# Legacy (Phase 1) — will be migrated in M2
 app.include_router(analysis_router)
 app.include_router(telemetry_router)
 

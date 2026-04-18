@@ -38,6 +38,22 @@ class Settings(BaseSettings):
     log_raw_responses: bool = Field(True, alias="LOG_RAW_RESPONSES")
     log_idea_text: bool = Field(False, alias="LOG_IDEA_TEXT")
 
+    # M1: auth + identity
+    session_encryption_key: str = Field("", alias="SESSION_ENCRYPTION_KEY")
+    entra_tenant_id: str = Field("", alias="ENTRA_TENANT_ID")
+    entra_tenant_subdomain: str = Field("", alias="ENTRA_TENANT_SUBDOMAIN")
+    entra_client_id: str = Field("", alias="ENTRA_CLIENT_ID")
+    entra_client_secret: str = Field("", alias="ENTRA_CLIENT_SECRET")
+    frontend_base_url: str = Field("http://localhost:3000", alias="FRONTEND_BASE_URL")
+    api_base_url: str = Field("http://localhost:8000", alias="API_BASE_URL")
+
+    # Blob storage
+    blob_endpoint: str = Field("", alias="BLOB_ENDPOINT")
+    blob_container_avatars: str = Field("avatars", alias="BLOB_CONTAINER_AVATARS")
+    blob_container_pdfs: str = Field("pdfs", alias="BLOB_CONTAINER_PDFS")
+    blob_container_raw: str = Field("raw", alias="BLOB_CONTAINER_RAW")
+    blob_container_summaries: str = Field("summaries", alias="BLOB_CONTAINER_SUMMARIES")
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

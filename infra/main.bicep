@@ -42,6 +42,15 @@ param monthlyBudgetInr int = 3000
 @description('Email address for budget + ops alerts')
 param alertEmail string = 'hemant.thota@gmail.com'
 
+// --- M1 additions ---
+@description('Postgres admin password — generated fresh for each env; stored in Key Vault.')
+@secure()
+param postgresAdminPassword string
+
+@description('Session encryption key (Fernet) for HTTP-only session cookies.')
+@secure()
+param sessionEncryptionKey string
+
 // ---------------------------------------------------------------------
 // Naming
 // ---------------------------------------------------------------------
@@ -56,6 +65,9 @@ var aiInsightsName = '${namePrefix}-ai-${regionCode}'
 var caeName        = '${namePrefix}-cae-${regionCode}'
 var apiAppName     = '${namePrefix}-api-${regionCode}'
 var apiMiName      = '${namePrefix}-mi-api-${regionCode}'
+var pgName         = '${namePrefix}-pg-${regionCode}'
+var blobAccountName = 'co${env}blob${substring(uniqueString(resourceGroup().id), 0, 8)}'
+var swaName        = 'co-${env}-web'
 
 // ---------------------------------------------------------------------
 // Monitoring — LA workspace + App Insights (set up FIRST)
@@ -109,9 +121,78 @@ resource secretAiFoundryKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'azure-openai-api-key'
   properties: {
     value: aiFoundryApiKey
-    attributes: {
-      enabled: true
-    }
+    attributes: { enabled: true }
+  }
+}
+
+resource secretPgPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kvRef
+  name: 'postgres-admin-password'
+  properties: {
+    value: postgresAdminPassword
+    attributes: { enabled: true }
+  }
+}
+
+resource secretSessionKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kvRef
+  name: 'session-encryption-key'
+  properties: {
+    value: sessionEncryptionKey
+    attributes: { enabled: true }
+  }
+}
+
+// ---------------------------------------------------------------------
+// Postgres Flexible Server — relational store
+// ---------------------------------------------------------------------
+module postgres 'modules/postgres.bicep' = {
+  name: 'postgres'
+  params: {
+    location:        location
+    name:            pgName
+    env:             env
+    logAnalyticsId:  monitor.outputs.logAnalyticsId
+    adminPassword:   postgresAdminPassword
+    storageGB:       32  // 32 is the minimum for Flexible Server regardless of tier
+  }
+}
+
+// Build a connection string for the app and stash it as a KV secret so we don't echo it in env vars.
+resource secretPgConnection 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kvRef
+  name: 'postgres-connection-string'
+  properties: {
+    value: 'postgresql://${postgres.outputs.adminLogin}:${postgresAdminPassword}@${postgres.outputs.fqdn}:5432/${postgres.outputs.dbName}?sslmode=require'
+    attributes: { enabled: true }
+  }
+  dependsOn: [
+    postgres
+  ]
+}
+
+// ---------------------------------------------------------------------
+// Blob Storage — avatars, PDFs, raw agent JSON, per-analysis summaries
+// ---------------------------------------------------------------------
+module storage 'modules/storage.bicep' = {
+  name: 'blob-storage'
+  params: {
+    location:        location
+    name:            blobAccountName
+    logAnalyticsId:  monitor.outputs.logAnalyticsId
+    blobDataContributorPrincipals: [
+      apiIdentity.outputs.principalId
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------
+// Static Web App — frontend hosting
+// ---------------------------------------------------------------------
+module web 'modules/static-web-app.bicep' = {
+  name: 'static-web-app'
+  params: {
+    name: swaName
   }
 }
 
@@ -163,9 +244,15 @@ module apiApp 'modules/container-app-api.bicep' = {
     aiFoundryEndpoint: aiFoundryEndpoint
     aiFoundryDeployment: aiFoundryDeployment
     aiFoundryApiVersion: aiFoundryApiVersion
+    blobEndpoint:    storage.outputs.blobEndpoint
+    frontendHostname: web.outputs.defaultHostname
+    environmentDefaultDomain: caEnv.outputs.defaultDomain
   }
   dependsOn: [
     secretAiFoundryKey
+    secretPgPassword
+    secretSessionKey
+    secretPgConnection
   ]
 }
 
@@ -189,3 +276,10 @@ output acrLoginServer string = acr.outputs.loginServer
 output keyVaultName string = kvName
 output appInsightsName string = aiInsightsName
 output apiManagedIdentityPrincipalId string = apiIdentity.outputs.principalId
+output postgresFqdn string = postgres.outputs.fqdn
+output postgresDb string = postgres.outputs.dbName
+output blobEndpoint string = storage.outputs.blobEndpoint
+output blobAccountName string = blobAccountName
+output frontendHostname string = web.outputs.defaultHostname
+output frontendUrl string = 'https://${web.outputs.defaultHostname}'
+

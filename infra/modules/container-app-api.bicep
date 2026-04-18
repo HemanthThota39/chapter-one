@@ -22,6 +22,13 @@ param env string
 param aiFoundryEndpoint string
 param aiFoundryDeployment string
 param aiFoundryApiVersion string
+@description('Blob storage account URL, e.g. https://coprodblob01.blob.core.windows.net')
+param blobEndpoint string = ''
+@description('Static Web App hostname for CORS allow-list (no scheme). Empty means omit.')
+param frontendHostname string = ''
+
+@description('Container Apps Environment default domain, to compose our own FQDN for API_BASE_URL.')
+param environmentDefaultDomain string
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
@@ -73,6 +80,36 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/azure-openai-api-key'
           identity: managedIdentityId
         }
+        {
+          name: 'database-url'
+          keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/postgres-connection-string'
+          identity: managedIdentityId
+        }
+        {
+          name: 'session-encryption-key'
+          keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/session-encryption-key'
+          identity: managedIdentityId
+        }
+        {
+          name: 'entra-tenant-id'
+          keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/entra-tenant-id'
+          identity: managedIdentityId
+        }
+        {
+          name: 'entra-tenant-subdomain'
+          keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/entra-tenant-subdomain'
+          identity: managedIdentityId
+        }
+        {
+          name: 'entra-client-id'
+          keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/entra-client-id'
+          identity: managedIdentityId
+        }
+        {
+          name: 'entra-client-secret'
+          keyVaultUrl: 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/entra-client-secret'
+          identity: managedIdentityId
+        }
       ]
       activeRevisionsMode: 'Single'
     }
@@ -95,6 +132,16 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'LOG_IDEA_TEXT', value: 'false' }
             { name: 'LOG_RAW_RESPONSES', value: 'true' }
             { name: 'RESEARCH_CONCURRENCY', value: '4' }
+            { name: 'DATABASE_URL', secretRef: 'database-url' }
+            { name: 'SESSION_ENCRYPTION_KEY', secretRef: 'session-encryption-key' }
+            { name: 'ENTRA_TENANT_ID', secretRef: 'entra-tenant-id' }
+            { name: 'ENTRA_TENANT_SUBDOMAIN', secretRef: 'entra-tenant-subdomain' }
+            { name: 'ENTRA_CLIENT_ID', secretRef: 'entra-client-id' }
+            { name: 'ENTRA_CLIENT_SECRET', secretRef: 'entra-client-secret' }
+            { name: 'BLOB_ENDPOINT', value: blobEndpoint }
+            { name: 'API_BASE_URL', value: 'https://${name}.${environmentDefaultDomain}' }
+            { name: 'FRONTEND_BASE_URL', value: empty(frontendHostname) ? 'http://localhost:3000' : 'https://${frontendHostname}' }
+            { name: 'CORS_ORIGINS', value: empty(frontendHostname) ? 'http://localhost:3000' : 'https://${frontendHostname},http://localhost:3000' }
           ]
           probes: [
             {
