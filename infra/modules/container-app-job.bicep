@@ -67,7 +67,7 @@ var baseSecrets = [
   }
 ]
 
-resource job 'Microsoft.App/jobs@2024-03-01' = {
+resource job 'Microsoft.App/jobs@2024-10-02-preview' = {
   name: name
   location: location
   identity: {
