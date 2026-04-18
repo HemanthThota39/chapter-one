@@ -130,7 +130,7 @@ async def callback(request: Request, code: str, state: str) -> RedirectResponse:
 
 
 @router.get("/session")
-async def session(user: OptionalCurrentUser) -> dict[str, Any]:
+async def session(user: OptionalCurrentUser, response: Response) -> dict[str, Any]:
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "not authenticated")
     row = await fetchrow(
@@ -145,6 +145,17 @@ async def session(user: OptionalCurrentUser) -> dict[str, Any]:
     data = dict(row)
     data["id"] = str(data["id"])
     data["onboarding_complete"] = bool(data.get("username"))
+
+    # Self-heal: if the cookie is stale (cookie.username != db.username),
+    # mint a fresh cookie so subsequent requests don't need the DB fallback.
+    if user.session.username != row["username"]:
+        token, _ = create_session_cookie(
+            user_id=user.id,
+            external_id=user.external_id,
+            username=row["username"],
+        )
+        _set_session_cookie(response, token)
+
     return {"user": data}
 
 

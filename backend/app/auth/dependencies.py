@@ -38,10 +38,28 @@ async def get_current_user_optional(
     cookie = decrypt_session_cookie(co_session)
     if cookie is None:
         return None
+
+    username = cookie.username
+    # Lazy reconciliation: if the cookie was minted before onboarding
+    # completed, pull the current username from the DB so downstream
+    # endpoints (e.g. POST /analyses) see the correct state without
+    # requiring the user to log out + back in.
+    if username is None:
+        try:
+            from app.db import fetchrow
+            row = await fetchrow(
+                "SELECT username FROM users WHERE id = $1::uuid",
+                cookie.user_id,
+            )
+            if row and row["username"]:
+                username = row["username"]
+        except Exception:  # noqa: BLE001
+            log.exception("failed to reconcile username from DB; falling back to cookie")
+
     return CurrentUserData(
         id=cookie.user_id,
         external_id=cookie.external_id,
-        username=cookie.username,
+        username=username,
         session=cookie,
     )
 
