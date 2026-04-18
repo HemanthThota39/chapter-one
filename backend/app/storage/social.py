@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any
 
-from app.db import get_pool, transaction
+from app.db import transaction
 
 log = logging.getLogger(__name__)
 
