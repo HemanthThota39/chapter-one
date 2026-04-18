@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status  # noqa: F401 (Depends used via Annotated)
 
 from app.auth.session import COOKIE_NAME, SessionCookie, decrypt_session_cookie
 
