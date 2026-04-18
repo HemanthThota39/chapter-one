@@ -73,7 +73,17 @@ class AnalysisQueueClient:
                 f"?api-version=2024-10-02-preview"
             )
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers={"Authorization": f"Bearer {token}"}) as r:
+                async with session.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        # ARM rejects with 415 Unsupported Media Type if
+                        # Content-Type isn't set, even though the start
+                        # endpoint accepts no meaningful body.
+                        "Content-Type": "application/json",
+                    },
+                    json={},
+                ) as r:
                     if r.status not in (200, 202):
                         body = await r.text()
                         log.warning(
