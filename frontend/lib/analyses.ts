@@ -1,5 +1,24 @@
 import { API_BASE } from "@/lib/session";
 
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ac.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function wrapNetworkError(url: string, e: unknown): Error {
+  const err = e as Error;
+  const name = err?.name ?? "Error";
+  if (name === "AbortError") return new Error("Request timed out. Check your connection and try again.");
+  // eslint-disable-next-line no-console
+  console.error("[chapter-one] request failed", { url, name, message: err?.message, err });
+  return new Error(`Couldn't reach the server (${name}).`);
+}
+
 export type AnalysisSummary = {
   id: string;
   idea_title: string | null;
@@ -71,10 +90,13 @@ export function reportPdfUrl(id: string): string {
 }
 
 export async function retryAnalysis(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/analyses/${id}/retry`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const url = `${API_BASE}/api/v1/analyses/${id}/retry`;
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, { method: "POST", credentials: "include" }, 30000);
+  } catch (e) {
+    throw wrapNetworkError(url, e);
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail || `Retry failed (${res.status})`);
@@ -82,10 +104,13 @@ export async function retryAnalysis(id: string): Promise<void> {
 }
 
 export async function deleteAnalysis(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+  const url = `${API_BASE}/api/v1/analyses/${id}`;
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, { method: "DELETE", credentials: "include" }, 30000);
+  } catch (e) {
+    throw wrapNetworkError(url, e);
+  }
   if (!res.ok && res.status !== 204) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail || `Delete failed (${res.status})`);
@@ -93,12 +118,22 @@ export async function deleteAnalysis(id: string): Promise<void> {
 }
 
 export async function setVisibility(id: string, visibility: "public" | "private"): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, {
-    method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ visibility }),
-  });
+  const url = `${API_BASE}/api/v1/analyses/${id}`;
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      url,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility }),
+      },
+      30000,
+    );
+  } catch (e) {
+    throw wrapNetworkError(url, e);
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail || `Visibility change failed (${res.status})`);

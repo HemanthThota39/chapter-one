@@ -133,11 +133,21 @@ async def callback(request: Request, code: str, state: str) -> RedirectResponse:
 async def session(user: OptionalCurrentUser, response: Response) -> dict[str, Any]:
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "not authenticated")
+    # total_analyses is computed live (the users.total_analyses column is a
+    # stale denormalised cache nothing maintains — see users.py /{username}).
     row = await fetchrow(
-        """SELECT id, external_id, email, username, display_name, avatar_url, avatar_kind,
-                  avatar_seed, timezone, default_visibility, total_analyses,
-                  current_streak, longest_streak, fires_received
-             FROM users WHERE id = $1::uuid""",
+        """SELECT u.id, u.external_id, u.email, u.username, u.display_name,
+                  u.avatar_url, u.avatar_kind, u.avatar_seed, u.timezone,
+                  u.default_visibility,
+                  u.current_streak, u.longest_streak, u.fires_received,
+                  COALESCE(cnt.n, 0)::int AS total_analyses
+             FROM users u
+        LEFT JOIN (
+                  SELECT owner_id, COUNT(*) AS n
+                    FROM analyses
+                   GROUP BY owner_id
+             ) cnt ON cnt.owner_id = u.id
+            WHERE u.id = $1::uuid""",
         user.id,
     )
     if row is None:

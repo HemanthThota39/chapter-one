@@ -236,15 +236,29 @@ async def patch_me(user: CurrentUser, req: PatchMeRequest) -> dict[str, Any]:
 # ---------------------------------------------------------------------
 @router.get("/{username}")
 async def public_profile(username: str) -> dict[str, Any]:
-    row = await fetchrow(
-        """SELECT username, display_name, avatar_url, avatar_kind, avatar_seed,
-                  created_at, total_analyses, current_streak, longest_streak, fires_received
-             FROM users WHERE username = $1""",
-        username,
-    )
+    # total_analyses is computed live from a COUNT(*) against analyses — the
+    # users.total_analyses column was a denormalised cache that no code
+    # actually maintains, so it drifted. A fast index-scan keeps this
+    # accurate without the sync burden.
+    async with transaction() as conn:
+        row = await conn.fetchrow(
+            """SELECT u.id, u.username, u.display_name, u.avatar_url, u.avatar_kind,
+                      u.avatar_seed, u.created_at, u.current_streak, u.longest_streak,
+                      u.fires_received,
+                      COALESCE(cnt.n, 0)::int AS total_analyses
+                 FROM users u
+            LEFT JOIN (
+                      SELECT owner_id, COUNT(*) AS n
+                        FROM analyses
+                       GROUP BY owner_id
+                 ) cnt ON cnt.owner_id = u.id
+                WHERE u.username = $1""",
+            username,
+        )
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user_not_found")
     data = dict(row)
+    data.pop("id", None)
     data["joined_at"] = data.pop("created_at").isoformat()
     return {"user": data}
 

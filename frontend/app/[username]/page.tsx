@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { API_BASE, useSession } from "@/lib/session";
+import { API_BASE, useSession, useSessionRefresh } from "@/lib/session";
 import { AnalysisSummary, deleteAnalysis, fetchMyAnalyses, reportPdfUrl, retryAnalysis } from "@/lib/analyses";
 import { toggleFire } from "@/lib/social";
 import AppShell from "@/components/AppShell";
@@ -46,6 +46,7 @@ export default function ProfilePage({
 }) {
   const { username } = use(params);
   const session = useSession();
+  const refreshSession = useSessionRefresh();
   const router = useRouter();
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
@@ -53,6 +54,16 @@ export default function ProfilePage({
   const [mine, setMine] = useState<AnalysisSummary[] | null>(null);
   const [theirs, setTheirs] = useState<PublicAnalysis[] | null>(null);
   const [showFailed, setShowFailed] = useState(false);
+
+  const refetchProfile = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/v1/users/${username}`, { credentials: "include" });
+      if (r.ok) {
+        const data = await r.json();
+        setProfile(data.user);
+      }
+    } catch {/* keep previous profile on transient error */}
+  }, [username]);
 
   useEffect(() => {
     if (RESERVED_PATHS.has(username.toLowerCase())) {
@@ -181,8 +192,18 @@ export default function ProfilePage({
             <MineGrid
               items={done}
               onDelete={async (id) => {
-                await deleteAnalysis(id);
+                const backup = mine;
                 setMine((prev) => (prev ?? []).filter((a) => a.id !== id));
+                try {
+                  await deleteAnalysis(id);
+                  // Fire-and-forget: refresh counts in the background, don't
+                  // block the UI on them.
+                  refetchProfile();
+                  refreshSession();
+                } catch (e) {
+                  setMine(backup);
+                  alert((e as Error).message || "Delete failed");
+                }
               }}
               onFireToggle={(id, fired, fc) => {
                 setMine((prev) => (prev ?? []).map((a) => a.id === id ? { ...a, i_fired: fired, fire_count: fc } : a));

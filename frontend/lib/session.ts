@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 export type SessionUser = {
   id: string;
@@ -42,20 +42,51 @@ export async function fetchSession(): Promise<SessionState> {
   }
 }
 
-export function useSession(): SessionState {
-  const [state, setState] = useState<SessionState>({ status: "loading" });
+type SessionContextValue = {
+  session: SessionState;
+  refresh: () => Promise<void>;
+};
+
+const SessionContext = createContext<SessionContextValue | null>(null);
+
+/** Root-level provider: fetches the session ONCE for the whole tree and
+ *  exposes a refresh() so pages can pull fresh profile data after mutations. */
+export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<SessionState>({ status: "loading" });
+
+  const refresh = useCallback(async () => {
+    const s = await fetchSession();
+    setSession(s);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetchSession().then((s) => {
-      if (!cancelled) setState(s);
-    });
-    return () => {
-      cancelled = true;
-    };
+    fetchSession().then((s) => { if (!cancelled) setSession(s); });
+    return () => { cancelled = true; };
   }, []);
 
-  return state;
+  return React.createElement(
+    SessionContext.Provider,
+    { value: { session, refresh } },
+    children,
+  );
+}
+
+/** Access the shared session state. Must be used under <SessionProvider>. */
+export function useSession(): SessionState {
+  const ctx = useContext(SessionContext);
+  if (!ctx) {
+    // Provider always mounted in app/layout.tsx, so this only hits in tests /
+    // storybook — yield a safe default to avoid crashing the whole tree.
+    return { status: "loading" };
+  }
+  return ctx.session;
+}
+
+/** Access the session refresher. Returns a no-op if no provider is mounted. */
+export function useSessionRefresh(): () => Promise<void> {
+  const ctx = useContext(SessionContext);
+  return ctx?.refresh ?? (async () => {/* no provider */});
 }
 
 export function loginUrl(redirect?: string): string {
