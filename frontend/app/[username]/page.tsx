@@ -38,8 +38,6 @@ const RESERVED_PATHS = new Set([
   "favicon.ico", "robots.txt", "sitemap.xml",
 ]);
 
-type StatusFilter = "all" | "done" | "running";
-
 export default function ProfilePage({
   params,
 }: {
@@ -53,7 +51,7 @@ export default function ProfilePage({
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<AnalysisSummary[] | null>(null);
   const [theirs, setTheirs] = useState<PublicAnalysis[] | null>(null);
-  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [showFailed, setShowFailed] = useState(false);
 
   useEffect(() => {
     if (RESERVED_PATHS.has(username.toLowerCase())) {
@@ -95,6 +93,16 @@ export default function ProfilePage({
     return () => { alive = false; };
   }, [profile, isSelf]);
 
+  // Poll while any of my analyses are still running — every 5s.
+  const hasRunning = (mine ?? []).some((a) => a.status === "queued" || a.status === "running");
+  useEffect(() => {
+    if (!isSelf || !hasRunning) return;
+    const t = setInterval(() => {
+      fetchMyAnalyses().then((items) => setMine(items)).catch(() => {/* keep old */});
+    }, 5000);
+    return () => clearInterval(t);
+  }, [isSelf, hasRunning]);
+
   if (error === "not_found") {
     return (
       <AppShell title="Profile">
@@ -124,12 +132,9 @@ export default function ProfilePage({
     );
   }
 
-  const counts = {
-    total: mine?.length ?? 0,
-    done: (mine ?? []).filter((a) => a.status === "done").length,
-    running: (mine ?? []).filter((a) => a.status === "queued" || a.status === "running").length,
-    failed: (mine ?? []).filter((a) => a.status === "failed").length,
-  };
+  const running = (mine ?? []).filter((a) => a.status === "queued" || a.status === "running");
+  const done = (mine ?? []).filter((a) => a.status === "done");
+  const failed = (mine ?? []).filter((a) => a.status === "failed");
 
   return (
     <AppShell title={profile.display_name}>
@@ -158,38 +163,72 @@ export default function ProfilePage({
       </section>
 
       <section className="mt-8">
+        {isSelf && running.length > 0 && (
+          <InProgressStrip items={running} />
+        )}
+
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-700">
             {isSelf ? "Your ideas" : "Public ideas"}{" "}
             <span className="text-neutral-400">·</span>{" "}
             <span className="text-neutral-500">
-              {isSelf ? counts.total : theirs?.length ?? 0}
+              {isSelf ? done.length : theirs?.length ?? 0}
             </span>
           </h2>
-          {isSelf && (
-            <div className="inline-flex rounded-full bg-neutral-100 p-0.5 text-[11px]">
-              <FilterTab active={filter === "all"} onClick={() => setFilter("all")}>All · {counts.total}</FilterTab>
-              <FilterTab active={filter === "running"} onClick={() => setFilter("running")}>In progress · {counts.running}</FilterTab>
-              <FilterTab active={filter === "done"} onClick={() => setFilter("done")}>Done · {counts.done}</FilterTab>
-            </div>
-          )}
         </div>
 
         {isSelf ? (
-          mine === null ? <GridSkeleton /> : <MineGrid items={filterMine(mine, filter)} />
+          mine === null ? <GridSkeleton /> : <MineGrid items={done} />
         ) : (
           theirs === null ? <GridSkeleton /> : <PublicGrid items={theirs} />
+        )}
+
+        {isSelf && failed.length > 0 && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowFailed((x) => !x)}
+              className="btn-ghost text-xs text-neutral-500"
+            >
+              {showFailed ? "Hide" : "Show"} {failed.length} failed {failed.length === 1 ? "analysis" : "analyses"}
+            </button>
+            {showFailed && (
+              <div className="mt-2">
+                <MineGrid items={failed} />
+              </div>
+            )}
+          </div>
         )}
       </section>
     </AppShell>
   );
 }
 
-function filterMine(items: AnalysisSummary[], f: StatusFilter): AnalysisSummary[] {
-  if (f === "all") return items;
-  if (f === "running") return items.filter((a) => a.status === "queued" || a.status === "running");
-  if (f === "done") return items.filter((a) => a.status === "done");
-  return items;
+function InProgressStrip({ items }: { items: AnalysisSummary[] }) {
+  return (
+    <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50/50 p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-blue-900">
+        <span className="pipeline-spinner" aria-hidden style={{ borderTopColor: "#1e40af", borderColor: "#bfdbfe" }} />
+        {items.length === 1 ? "1 analysis running" : `${items.length} analyses running`}
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((a) => (
+          <li key={a.id}>
+            <Link
+              href={`/analyses/${a.id}`}
+              className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm shadow-sm transition hover:shadow-md"
+            >
+              <span className="truncate font-medium text-neutral-800 break-anywhere">
+                {a.idea_title || "Analysis starting…"}
+              </span>
+              <span className="shrink-0 text-[11px] font-medium text-blue-700">
+                {a.status === "queued" ? "Queued" : "Running"} →
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function MineGrid({ items }: { items: AnalysisSummary[] }) {
@@ -285,19 +324,6 @@ function verdictColor(v: string): string {
   if (v === "WATCH") return "bg-yellow-100 text-yellow-800";
   if (v === "PASS" || v === "HARD PASS") return "bg-red-100 text-red-800";
   return "bg-neutral-100 text-neutral-700";
-}
-
-function FilterTab({
-  active, onClick, children,
-}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-2.5 py-1 font-medium transition ${active ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:text-neutral-900"}`}
-    >
-      {children}
-    </button>
-  );
 }
 
 function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
