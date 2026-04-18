@@ -82,6 +82,13 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
       triggerType: triggerType
       replicaTimeout: replicaTimeout
       replicaRetryLimit: replicaRetryLimit
+      // Register the MI at the job level so KEDA scalers can use it to authenticate.
+      identitySettings: [
+        {
+          identity: managedIdentityId
+          lifecycle: 'All'
+        }
+      ]
       eventTriggerConfig: triggerType == 'Event' ? {
         parallelism: parallelism
         replicaCompletionCount: replicaCompletionCount
@@ -96,7 +103,8 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
               identity: managedIdentityId
               metadata: {
                 queueName: serviceBusQueueName
-                namespace: split(serviceBusNamespaceHostname, '.')[0]
+                // KEDA's azure-servicebus scaler expects full namespace hostname
+                namespace: serviceBusNamespaceHostname
                 messageCount: '1'
               }
             }
