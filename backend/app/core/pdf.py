@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import html as _html
 import logging
-from typing import Any
 
 log = logging.getLogger(__name__)
 
