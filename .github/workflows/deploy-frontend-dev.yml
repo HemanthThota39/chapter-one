@@ -1,0 +1,38 @@
+name: Deploy frontend to dev SWA
+on:
+  push:
+    branches: [main]
+    paths: ['frontend/**', '.github/workflows/deploy-frontend-dev.yml']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install + build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: https://co-dev-api-cin.agreeablepebble-e0216b43.centralindia.azurecontainerapps.io
+        run: |
+          npm ci || npm install
+          npm run build
+
+      - name: Deploy to SWA
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN_DEV }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: frontend
+          output_location: .next
+          skip_app_build: true
