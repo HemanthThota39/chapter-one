@@ -19,9 +19,36 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-def _is_prod() -> bool:
+def _is_deployed() -> bool:
+    """True when running on Azure (dev or prod); False in local dev on http://localhost."""
     import os
-    return os.environ.get("CHAPTER_ONE_ENV", "dev") == "prod"
+    env = os.environ.get("CHAPTER_ONE_ENV", "").lower()
+    return env in {"dev", "prod"}
+
+
+def _cross_site_mode() -> bool:
+    """True when the frontend and API are on different origins.
+
+    In our Azure deploy the frontend lives on *.azurestaticapps.net and the
+    API on *.azurecontainerapps.io — always cross-site. Locally, both are on
+    localhost and same-site. This decides the SameSite/Secure cookie profile.
+    """
+    settings = get_settings()
+    try:
+        from urllib.parse import urlparse
+        return urlparse(settings.frontend_base_url).netloc != urlparse(settings.api_base_url).netloc
+    except Exception:
+        return _is_deployed()
+
+
+def _cookie_profile() -> dict:
+    """Return the right SameSite / Secure combo for this environment."""
+    if _cross_site_mode():
+        # Cross-site: SameSite=None requires Secure (HTTPS-only). Browsers reject
+        # SameSite=None cookies without Secure, even on HTTPS.
+        return {"samesite": "none", "secure": True}
+    # Same-site / local dev over HTTP: Lax is fine; Secure optional.
+    return {"samesite": "lax", "secure": _is_deployed()}
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -29,10 +56,9 @@ def _set_session_cookie(response: Response, token: str) -> None:
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=_is_prod(),  # allow http in local dev
-        samesite="lax",
         max_age=int(SESSION_LIFETIME.total_seconds()),
         path="/",
+        **_cookie_profile(),
     )
 
 
@@ -51,9 +77,10 @@ async def login(redirect: str | None = None) -> RedirectResponse:
 
     final_redirect = redirect or f"{settings.frontend_base_url}/feed"
     resp = RedirectResponse(url=url, status_code=302)
-    resp.set_cookie("co_oidc_state", state, httponly=True, secure=_is_prod(), max_age=600, samesite="lax")
-    resp.set_cookie("co_oidc_nonce", nonce, httponly=True, secure=_is_prod(), max_age=600, samesite="lax")
-    resp.set_cookie("co_post_login_redirect", final_redirect, httponly=True, secure=_is_prod(), max_age=600, samesite="lax")
+    cp = _cookie_profile()
+    resp.set_cookie("co_oidc_state", state, httponly=True, max_age=600, **cp)
+    resp.set_cookie("co_oidc_nonce", nonce, httponly=True, max_age=600, **cp)
+    resp.set_cookie("co_post_login_redirect", final_redirect, httponly=True, max_age=600, **cp)
     return resp
 
 
