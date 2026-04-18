@@ -69,21 +69,29 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
   }
 }
 
+function describeFetchError(url: string, e: unknown): string {
+  const err = e as Error;
+  const name = err?.name ?? "Error";
+  if (name === "AbortError") return "Request timed out after 30s. Check your connection and retry.";
+  // TypeError: Failed to fetch — Chrome's generic for DNS / CORS / offline / mixed-content.
+  // Include the URL so devtools + log both show what tried.
+  const msg = err?.message || "unknown";
+  // eslint-disable-next-line no-console
+  console.error("[chapter-one] fetch failed", { url, name, message: msg, err });
+  return `Couldn't reach the server (${name}: ${msg}).`;
+}
+
 export async function fetchFeed(cursor?: string): Promise<{ items: FeedItem[]; next_cursor: string | null }> {
   const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  const url = `${API_BASE}/api/v1/feed${q}`;
   let res: Response;
   try {
-    res = await fetchWithTimeout(
-      `${API_BASE}/api/v1/feed${q}`,
-      { credentials: "include" },
-      15000,
-    );
+    res = await fetchWithTimeout(url, { credentials: "include" }, 30000);
   } catch (e) {
-    // Abort / network error — surface a typed message so the UI can show Retry.
-    throw new Error((e as Error).name === "AbortError" ? "Request timed out" : "Network error — check your connection");
+    throw new Error(describeFetchError(url, e));
   }
-  if (res.status === 401) throw new Error("Not signed in");
-  if (!res.ok) throw new Error(`Feed returned ${res.status}`);
+  if (res.status === 401) throw new Error("Your session expired. Please sign in again.");
+  if (!res.ok) throw new Error(`Feed returned HTTP ${res.status}`);
   return res.json();
 }
 
@@ -134,18 +142,15 @@ export async function fetchNotifications(
   cursor?: string,
 ): Promise<{ items: Notification[]; unread_count: number; next_cursor: string | null }> {
   const params = new URLSearchParams({ filter, ...(cursor ? { cursor } : {}) });
+  const url = `${API_BASE}/api/v1/notifications?${params}`;
   let res: Response;
   try {
-    res = await fetchWithTimeout(
-      `${API_BASE}/api/v1/notifications?${params}`,
-      { credentials: "include" },
-      15000,
-    );
+    res = await fetchWithTimeout(url, { credentials: "include" }, 30000);
   } catch (e) {
-    throw new Error((e as Error).name === "AbortError" ? "Request timed out" : "Network error — check your connection");
+    throw new Error(describeFetchError(url, e));
   }
-  if (res.status === 401) throw new Error("Not signed in");
-  if (!res.ok) throw new Error(`Notifications returned ${res.status}`);
+  if (res.status === 401) throw new Error("Your session expired. Please sign in again.");
+  if (!res.ok) throw new Error(`Notifications returned HTTP ${res.status}`);
   return res.json();
 }
 
