@@ -262,10 +262,7 @@ async def patch(analysis_id: str, user: CurrentUser, req: PatchAnalysisRequest) 
             elif req.visibility == "private":
                 await social.delete_post_for_analysis(analysis_id)
 
-        # Caption edit only applies when a post exists
         if req.caption is not None and row["visibility"] == "public":
-            post = await social.get_post(analysis_id, viewer_id=user.id)  # by analysis_id? we have post by id only
-            # simpler: update caption by analysis_id
             await conn.execute(
                 "UPDATE posts SET caption = $2 WHERE analysis_id = $1::uuid",
                 analysis_id, req.caption,
