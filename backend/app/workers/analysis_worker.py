@@ -176,6 +176,14 @@ async def _process_one(
         slug=slug,
         current_version_id=version_id,
     )
+    # Auto-publish to the global feed when visibility=public
+    if row["visibility"] == "public":
+        try:
+            from app.storage.social import create_post_if_missing
+            await create_post_if_missing(analysis_id, owner_id, caption=None)
+        except Exception:  # noqa: BLE001
+            log.exception("Failed to auto-create post; analysis saved but not in feed")
+
     await store.publish_event(analysis_id, kind="progress", stage="done", percent=100, message=f"Analysis complete · {verdict} {overall_100}/100")
     # Update user's streak + total
     await _update_user_activity(owner_id)

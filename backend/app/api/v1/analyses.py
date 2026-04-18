@@ -23,6 +23,7 @@ from app.auth.dependencies import CurrentUser, OptionalCurrentUser
 from app.core.queue import get_queue
 from app.db import get_pool
 from app.storage import analyses as store
+from app.storage import social
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/analyses", tags=["analyses"])
@@ -195,6 +196,41 @@ async def report(analysis_id: str, user: OptionalCurrentUser, version: str | Non
     if md is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "report_not_ready")
     return Response(content=md, media_type="text/markdown; charset=utf-8")
+
+
+class PatchAnalysisRequest(BaseModel):
+    visibility: str | None = Field(None, pattern=r"^(public|private)$")
+    caption: constr(strip_whitespace=True, max_length=500) | None = None
+
+
+@router.patch("/{analysis_id}")
+async def patch(analysis_id: str, user: CurrentUser, req: PatchAnalysisRequest) -> dict:
+    row = await store.get_analysis(analysis_id)
+    if row is None or str(row["owner_id"]) != str(user.id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not_found")
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if req.visibility is not None and req.visibility != row["visibility"]:
+            await conn.execute(
+                "UPDATE analyses SET visibility = $2 WHERE id = $1::uuid",
+                analysis_id, req.visibility,
+            )
+            if req.visibility == "public" and row["status"] == "done":
+                await social.create_post_if_missing(analysis_id, str(row["owner_id"]), caption=req.caption)
+            elif req.visibility == "private":
+                await social.delete_post_for_analysis(analysis_id)
+
+        # Caption edit only applies when a post exists
+        if req.caption is not None and row["visibility"] == "public":
+            post = await social.get_post(analysis_id, viewer_id=user.id)  # by analysis_id? we have post by id only
+            # simpler: update caption by analysis_id
+            await conn.execute(
+                "UPDATE posts SET caption = $2 WHERE analysis_id = $1::uuid",
+                analysis_id, req.caption,
+            )
+
+    return await get(analysis_id, user)
 
 
 @router.delete("/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
