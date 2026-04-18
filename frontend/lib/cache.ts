@@ -24,17 +24,26 @@ export function invalidate(prefix: string): void {
 }
 
 /** Hook: returns cached data synchronously when present, then revalidates.
- *  Re-runs the fetcher only when key changes, not on every render. */
+ *  Re-runs the fetcher when key changes OR when revalidate() is called. */
 export function useSWR<T>(
   key: string | null,
   fetcher: () => Promise<T>,
-): { data: T | undefined; error: Error | null; loading: boolean; mutate: (v?: T) => void } {
+): {
+  data: T | undefined;
+  error: Error | null;
+  loading: boolean;
+  mutate: (v?: T) => void;
+  revalidate: () => Promise<void>;
+} {
   const [data, setData] = useState<T | undefined>(() =>
     key ? getCached<T>(key) : undefined,
   );
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(!data && key !== null);
+  const [tick, setTick] = useState(0);
   const mountedRef = useRef(true);
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -45,16 +54,16 @@ export function useSWR<T>(
     if (key === null) return;
     let cancelled = false;
     const cached = getCached<T>(key);
-    if (cached !== undefined) {
+    if (cached !== undefined && tick === 0) {
       setData(cached);
       setLoading(false);
     } else {
       setLoading(true);
     }
-    // Deduplicate concurrent requests for the same key.
+    // Deduplicate concurrent requests for the same key unless forced by tick.
     let promise = inflight.get(key) as Promise<T> | undefined;
-    if (!promise) {
-      promise = fetcher();
+    if (!promise || tick > 0) {
+      promise = fetcherRef.current();
       inflight.set(key, promise);
       promise.finally(() => inflight.delete(key));
     }
@@ -75,7 +84,7 @@ export function useSWR<T>(
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, tick]);
 
   return {
     data,
@@ -83,8 +92,14 @@ export function useSWR<T>(
     loading,
     mutate: (v?: T) => {
       if (key === null) return;
-      if (v !== undefined) { setCached(key, v); setData(v); }
+      if (v !== undefined) { setCached(key, v); setData(v); setError(null); }
       else invalidate(key);
+    },
+    revalidate: async () => {
+      if (key === null) return;
+      setError(null);
+      invalidate(key);
+      setTick((t) => t + 1);
     },
   };
 }

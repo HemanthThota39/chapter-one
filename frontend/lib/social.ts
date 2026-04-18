@@ -59,10 +59,31 @@ export type Notification = {
   created_at: string;
 };
 
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ac.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fetchFeed(cursor?: string): Promise<{ items: FeedItem[]; next_cursor: string | null }> {
   const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const res = await fetch(`${API_BASE}/api/v1/feed${q}`, { credentials: "include" });
-  if (!res.ok) return { items: [], next_cursor: null };
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      `${API_BASE}/api/v1/feed${q}`,
+      { credentials: "include" },
+      15000,
+    );
+  } catch (e) {
+    // Abort / network error — surface a typed message so the UI can show Retry.
+    throw new Error((e as Error).name === "AbortError" ? "Request timed out" : "Network error — check your connection");
+  }
+  if (res.status === 401) throw new Error("Not signed in");
+  if (!res.ok) throw new Error(`Feed returned ${res.status}`);
   return res.json();
 }
 
@@ -113,10 +134,18 @@ export async function fetchNotifications(
   cursor?: string,
 ): Promise<{ items: Notification[]; unread_count: number; next_cursor: string | null }> {
   const params = new URLSearchParams({ filter, ...(cursor ? { cursor } : {}) });
-  const res = await fetch(`${API_BASE}/api/v1/notifications?${params}`, {
-    credentials: "include",
-  });
-  if (!res.ok) return { items: [], unread_count: 0, next_cursor: null };
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      `${API_BASE}/api/v1/notifications?${params}`,
+      { credentials: "include" },
+      15000,
+    );
+  } catch (e) {
+    throw new Error((e as Error).name === "AbortError" ? "Request timed out" : "Network error — check your connection");
+  }
+  if (res.status === 401) throw new Error("Not signed in");
+  if (!res.ok) throw new Error(`Notifications returned ${res.status}`);
   return res.json();
 }
 

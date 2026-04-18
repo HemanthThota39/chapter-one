@@ -28,7 +28,10 @@ export default function NotificationsPage() {
 
   const key =
     session.status === "authenticated" ? `notifications:${filter}` : null;
-  const { data, loading, mutate } = useSWR<Page>(key, () => fetchNotifications(filter));
+  const { data, loading, error, mutate, revalidate } = useSWR<Page>(
+    key,
+    () => fetchNotifications(filter),
+  );
 
   const items = (data?.items ?? []).map((n) =>
     localUpdates[n.id] ? { ...n, read_at: localUpdates[n.id] } : n,
@@ -36,9 +39,11 @@ export default function NotificationsPage() {
   const unread = data?.unread_count ?? 0;
 
   const refresh = async () => {
-    const d = await fetchNotifications(filter);
-    if (key) setCached(key, d);
-    mutate(d);
+    try {
+      const d = await fetchNotifications(filter);
+      if (key) setCached(key, d);
+      mutate(d);
+    } catch {/* useSWR error state surfaces via Retry */}
   };
 
   const onOpen = async (n: Notification) => {
@@ -96,6 +101,13 @@ export default function NotificationsPage() {
 
       {loading && items.length === 0 ? (
         <NotificationsSkeleton />
+      ) : error && items.length === 0 ? (
+        <div className="card flex flex-col items-center gap-3 p-8 text-center">
+          <p className="text-sm text-red-600 break-anywhere">{error.message}</p>
+          <button onClick={() => revalidate()} disabled={loading} className="btn-secondary disabled:opacity-50">
+            {loading ? "Retrying…" : "Retry"}
+          </button>
+        </div>
       ) : items.length === 0 ? (
         <div className="card p-8 text-center text-sm text-neutral-500">
           {filter === "unread" ? "All caught up ✨" : "No notifications yet."}

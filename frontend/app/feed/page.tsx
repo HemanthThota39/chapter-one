@@ -26,10 +26,10 @@ export default function FeedPage() {
   }, [session, router]);
 
   const {
-    data, error, loading, mutate,
+    data, error, loading, mutate, revalidate,
   } = useSWR<{ items: FeedItem[]; next_cursor: string | null }>(
     session.status === "authenticated" ? "feed:first" : null,
-    fetchFeed,
+    () => fetchFeed(),
   );
 
   useEffect(() => {
@@ -56,7 +56,9 @@ export default function FeedPage() {
       mutate(fresh);
       setExtra([]);
       setNextCursor(fresh.next_cursor);
-    } catch {/* ignore */}
+    } catch {
+      // Ignore — useSWR's error state already surfaces failures via the Retry card.
+    }
   }, [mutate]);
   // Background refresh on tab focus — makes the feed feel live.
   useEffect(() => {
@@ -89,7 +91,13 @@ export default function FeedPage() {
       ) : error && items.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-8 text-center">
           <p className="text-sm text-red-600 break-anywhere">{error.message}</p>
-          <button onClick={refresh} className="btn-secondary">Retry</button>
+          <button
+            onClick={() => { revalidate(); }}
+            disabled={loading}
+            className="btn-secondary disabled:opacity-50"
+          >
+            {loading ? "Retrying…" : "Retry"}
+          </button>
         </div>
       ) : items.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-8 text-center">
