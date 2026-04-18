@@ -65,3 +65,27 @@ export function reportUrl(id: string): string {
 export function reportPdfUrl(id: string): string {
   return `${API_BASE}/api/v1/analyses/${id}/report.pdf`;
 }
+
+export async function deleteAnalysis(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || `Delete failed (${res.status})`);
+  }
+}
+
+export async function setVisibility(id: string, visibility: "public" | "private"): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ visibility }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || `Visibility change failed (${res.status})`);
+  }
+}

@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { API_BASE, useSession } from "@/lib/session";
-import { AnalysisSummary, fetchMyAnalyses } from "@/lib/analyses";
+import { AnalysisSummary, deleteAnalysis, fetchMyAnalyses } from "@/lib/analyses";
 import AppShell from "@/components/AppShell";
 
 type PublicProfile = {
@@ -178,7 +178,15 @@ export default function ProfilePage({
         </div>
 
         {isSelf ? (
-          mine === null ? <GridSkeleton /> : <MineGrid items={done} />
+          mine === null ? <GridSkeleton /> : (
+            <MineGrid
+              items={done}
+              onDelete={async (id) => {
+                await deleteAnalysis(id);
+                setMine((prev) => (prev ?? []).filter((a) => a.id !== id));
+              }}
+            />
+          )
         ) : (
           theirs === null ? <GridSkeleton /> : <PublicGrid items={theirs} />
         )}
@@ -193,7 +201,13 @@ export default function ProfilePage({
             </button>
             {showFailed && (
               <div className="mt-2">
-                <MineGrid items={failed} />
+                <MineGrid
+                  items={failed}
+                  onDelete={async (id) => {
+                    await deleteAnalysis(id);
+                    setMine((prev) => (prev ?? []).filter((a) => a.id !== id));
+                  }}
+                />
               </div>
             )}
           </div>
@@ -231,7 +245,13 @@ function InProgressStrip({ items }: { items: AnalysisSummary[] }) {
   );
 }
 
-function MineGrid({ items }: { items: AnalysisSummary[] }) {
+function MineGrid({
+  items,
+  onDelete,
+}: {
+  items: AnalysisSummary[];
+  onDelete: (id: string) => Promise<void>;
+}) {
   if (items.length === 0) {
     return (
       <div className="card p-8 text-center">
@@ -243,9 +263,9 @@ function MineGrid({ items }: { items: AnalysisSummary[] }) {
   return (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {items.map((a) => (
-        <li key={a.id}>
+        <li key={a.id} className="relative">
           <Link href={`/analyses/${a.id}`} className="card block p-4 transition hover:shadow-md">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-medium">
+            <div className="mb-2 flex flex-wrap items-center gap-2 pr-8 text-[11px] font-medium">
               <StatusBadge status={a.status} />
               {a.visibility === "private" && (
                 <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-600">Private</span>
@@ -268,9 +288,81 @@ function MineGrid({ items }: { items: AnalysisSummary[] }) {
                   : ""}
             </p>
           </Link>
+          <CardMenu id={a.id} title={a.idea_title} onDelete={onDelete} />
         </li>
       ))}
     </ul>
+  );
+}
+
+function CardMenu({
+  id, title, onDelete,
+}: {
+  id: string;
+  title: string | null;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Close the popover on outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = () => setOpen(false);
+    // Register after the current event so the click that opened us isn't caught.
+    const t = setTimeout(() => window.addEventListener("click", onClick), 0);
+    return () => { clearTimeout(t); window.removeEventListener("click", onClick); };
+  }, [open]);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy) return;
+    const label = title ? `"${title}"` : "this analysis";
+    if (!window.confirm(`Delete ${label}? This removes the report, post, comments, and fires. Cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await onDelete(id);
+    } catch (err) {
+      alert((err as Error).message || "Delete failed");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="absolute right-2 top-2">
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((x) => !x); }}
+        className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800"
+        aria-label="More actions"
+      >
+        <DotsIcon />
+      </button>
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-8 z-10 w-40 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg"
+        >
+          <button
+            onClick={handleDelete}
+            disabled={busy}
+            className="block w-full px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            {busy ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </svg>
   );
 }
 
