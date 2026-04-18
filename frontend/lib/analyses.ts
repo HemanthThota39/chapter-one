@@ -9,6 +9,10 @@ export type AnalysisSummary = {
   verdict: string | null;
   submitted_at: string | null;
   completed_at: string | null;
+  post_id: string | null;
+  fire_count: number;
+  comment_count: number;
+  i_fired: boolean;
 };
 
 export type AnalysisDetail = AnalysisSummary & {

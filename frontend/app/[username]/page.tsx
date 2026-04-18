@@ -4,7 +4,8 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { API_BASE, useSession } from "@/lib/session";
-import { AnalysisSummary, deleteAnalysis, fetchMyAnalyses } from "@/lib/analyses";
+import { AnalysisSummary, deleteAnalysis, fetchMyAnalyses, reportPdfUrl } from "@/lib/analyses";
+import { toggleFire } from "@/lib/social";
 import AppShell from "@/components/AppShell";
 
 type PublicProfile = {
@@ -155,11 +156,9 @@ export default function ProfilePage({
         </div>
       </header>
 
-      <section className="grid grid-cols-4 gap-2.5">
+      <section className="grid grid-cols-2 gap-3">
         <Stat label="Ideas" value={profile.total_analyses} />
-        <Stat label="🔥 Streak" value={profile.current_streak} highlight={profile.current_streak >= 7} />
-        <Stat label="Longest" value={profile.longest_streak} />
-        <Stat label="🔥 Got" value={profile.fires_received} />
+        <Stat label="🔥 Fires" value={profile.fires_received} highlight={profile.fires_received >= 5} />
       </section>
 
       <section className="mt-8">
@@ -185,6 +184,9 @@ export default function ProfilePage({
                 await deleteAnalysis(id);
                 setMine((prev) => (prev ?? []).filter((a) => a.id !== id));
               }}
+              onFireToggle={(id, fired, fc) => {
+                setMine((prev) => (prev ?? []).map((a) => a.id === id ? { ...a, i_fired: fired, fire_count: fc } : a));
+              }}
             />
           )
         ) : (
@@ -207,6 +209,7 @@ export default function ProfilePage({
                     await deleteAnalysis(id);
                     setMine((prev) => (prev ?? []).filter((a) => a.id !== id));
                   }}
+                  onFireToggle={() => {/* failed items have no post, footer doesn't render */}}
                 />
               </div>
             )}
@@ -248,9 +251,11 @@ function InProgressStrip({ items }: { items: AnalysisSummary[] }) {
 function MineGrid({
   items,
   onDelete,
+  onFireToggle,
 }: {
   items: AnalysisSummary[];
   onDelete: (id: string) => Promise<void>;
+  onFireToggle: (id: string, fired: boolean, count: number) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -263,53 +268,126 @@ function MineGrid({
   return (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {items.map((a) => (
-        <li key={a.id} className="relative">
-          <Link href={`/analyses/${a.id}`} className="card block p-4 transition hover:shadow-md">
-            <div className="mb-2 flex flex-wrap items-center gap-2 pr-8 text-[11px] font-medium">
-              <StatusBadge status={a.status} />
-              {a.visibility === "private" && (
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-600">Private</span>
-              )}
-              {a.verdict && (
-                <span className={`rounded-full px-2 py-0.5 ${verdictColor(a.verdict)}`}>{a.verdict}</span>
-              )}
-              {a.overall_score_100 != null && (
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-800">{a.overall_score_100}/100</span>
-              )}
-            </div>
-            <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 break-anywhere">
-              {a.idea_title ?? "Untitled analysis"}
-            </h3>
-            <p className="mt-2 text-[11px] text-neutral-500">
-              {a.completed_at
-                ? `Completed ${new Date(a.completed_at).toLocaleDateString()}`
-                : a.submitted_at
-                  ? `Submitted ${new Date(a.submitted_at).toLocaleDateString()}`
-                  : ""}
-            </p>
-          </Link>
-          <CardMenu id={a.id} title={a.idea_title} onDelete={onDelete} />
-        </li>
+        <IdeaCard key={a.id} a={a} onDelete={onDelete} onFireToggle={onFireToggle} />
       ))}
     </ul>
   );
 }
 
+function IdeaCard({
+  a, onDelete, onFireToggle,
+}: {
+  a: AnalysisSummary;
+  onDelete: (id: string) => Promise<void>;
+  onFireToggle: (id: string, fired: boolean, count: number) => void;
+}) {
+  const isDone = a.status === "done";
+  return (
+    <li className="relative">
+      <Link href={`/analyses/${a.id}`} className="card block p-4 pb-3 transition hover:shadow-md">
+        <div className="mb-2 flex flex-wrap items-center gap-2 pr-8 text-[11px] font-medium">
+          <StatusBadge status={a.status} />
+          {a.visibility === "private" && (
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-600">Private</span>
+          )}
+          {a.verdict && (
+            <span className={`rounded-full px-2 py-0.5 ${verdictColor(a.verdict)}`}>{a.verdict}</span>
+          )}
+          {a.overall_score_100 != null && (
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-800">{a.overall_score_100}/100</span>
+          )}
+        </div>
+        <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 break-anywhere">
+          {a.idea_title ?? "Untitled analysis"}
+        </h3>
+        <p className="mt-2 text-[11px] text-neutral-500">
+          {a.completed_at
+            ? `Completed ${new Date(a.completed_at).toLocaleDateString()}`
+            : a.submitted_at
+              ? `Submitted ${new Date(a.submitted_at).toLocaleDateString()}`
+              : ""}
+        </p>
+      </Link>
+
+      {/* Card footer — reserved for social signals. Only rendered when the
+          analysis actually has a post (i.e. it's public + done). */}
+      {isDone && a.visibility === "public" && a.post_id && (
+        <CardFooter a={a} onFireToggle={onFireToggle} />
+      )}
+
+      <CardMenu
+        id={a.id}
+        title={a.idea_title}
+        canDownload={isDone}
+        onDelete={onDelete}
+      />
+    </li>
+  );
+}
+
+function CardFooter({
+  a, onFireToggle,
+}: {
+  a: AnalysisSummary;
+  onFireToggle: (id: string, fired: boolean, count: number) => void;
+}) {
+  const [fired, setFired] = useState(a.i_fired);
+  const [count, setCount] = useState(a.fire_count);
+  const [busy, setBusy] = useState(false);
+
+  const handleFire = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy || !a.post_id) return;
+    setBusy(true);
+    const prev = { fired, count };
+    setFired(!fired);
+    setCount(fired ? Math.max(0, count - 1) : count + 1);
+    try {
+      const r = await toggleFire(a.post_id);
+      setFired(r.fired);
+      setCount(r.fire_count);
+      onFireToggle(a.id, r.fired, r.fire_count);
+    } catch {
+      setFired(prev.fired);
+      setCount(prev.count);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card border-t-0 rounded-t-none -mt-[1px] flex items-center gap-3 px-4 py-2 text-xs">
+      <button
+        onClick={handleFire}
+        disabled={busy}
+        aria-pressed={fired}
+        className={`flex items-center gap-1 rounded-full px-2 py-0.5 transition active:scale-95 ${fired ? "bg-orange-50 text-orange-700" : "text-neutral-600 hover:bg-neutral-100"}`}
+      >
+        <span className={fired ? "animate-pop" : ""}>🔥</span>
+        <span className="font-semibold tabular-nums">{count}</span>
+      </button>
+      <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-neutral-600">
+        💬 <span className="font-semibold tabular-nums">{a.comment_count}</span>
+      </span>
+    </div>
+  );
+}
+
 function CardMenu({
-  id, title, onDelete,
+  id, title, canDownload, onDelete,
 }: {
   id: string;
   title: string | null;
+  canDownload: boolean;
   onDelete: (id: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Close the popover on outside click.
   useEffect(() => {
     if (!open) return;
     const onClick = () => setOpen(false);
-    // Register after the current event so the click that opened us isn't caught.
     const t = setTimeout(() => window.addEventListener("click", onClick), 0);
     return () => { clearTimeout(t); window.removeEventListener("click", onClick); };
   }, [open]);
@@ -333,7 +411,7 @@ function CardMenu({
     <div className="absolute right-2 top-2">
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((x) => !x); }}
-        className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-neutral-600 shadow-sm ring-1 ring-neutral-200 backdrop-blur transition hover:bg-white hover:text-neutral-900"
         aria-label="More actions"
       >
         <DotsIcon />
@@ -341,18 +419,47 @@ function CardMenu({
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-8 z-10 w-40 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg"
+          className="absolute right-0 top-9 z-10 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg"
         >
+          {canDownload && (
+            <a
+              href={reportPdfUrl(id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-neutral-800 transition hover:bg-neutral-50"
+            >
+              <MenuDownloadIcon /> Download PDF
+            </a>
+          )}
           <button
             onClick={handleDelete}
             disabled={busy}
-            className="block w-full px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:opacity-50"
           >
-            {busy ? "Deleting…" : "Delete"}
+            <TrashIcon /> {busy ? "Deleting…" : "Delete"}
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+function MenuDownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6 18 20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   );
 }
 

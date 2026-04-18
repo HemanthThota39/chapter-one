@@ -131,11 +131,21 @@ async def get_analysis(analysis_id: str) -> dict[str, Any] | None:
 async def list_user_analyses(owner_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
     async with transaction() as conn:
         rows = await conn.fetch(
-            """SELECT id, idea_title, status, visibility, overall_score_100, verdict,
-                      confidence, submitted_at, completed_at
-                 FROM analyses
-                WHERE owner_id = $1::uuid
-             ORDER BY submitted_at DESC
+            """SELECT a.id, a.idea_title, a.status, a.visibility, a.overall_score_100,
+                      a.verdict, a.confidence, a.submitted_at, a.completed_at,
+                      p.id AS post_id,
+                      COALESCE(p.fire_count, 0)    AS fire_count,
+                      COALESCE(p.comment_count, 0) AS comment_count,
+                      EXISTS(
+                        SELECT 1 FROM fires f
+                         WHERE p.id IS NOT NULL
+                           AND f.post_id = p.id
+                           AND f.user_id = $1::uuid
+                      ) AS i_fired
+                 FROM analyses a
+            LEFT JOIN posts p ON p.analysis_id = a.id
+                WHERE a.owner_id = $1::uuid
+             ORDER BY a.submitted_at DESC
                 LIMIT $2""",
             owner_id, limit,
         )

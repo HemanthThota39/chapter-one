@@ -46,7 +46,7 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
   }
 
   const user = session.user;
-  const streak = user.current_streak ?? 0;
+  const fires = user.fires_received ?? 0;
   const maxW = width === "wide" ? "max-w-5xl" : "max-w-2xl";
   const isActive = (href: string) => {
     if (href === "/feed") return pathname === "/feed";
@@ -73,13 +73,13 @@ export default function AppShell({ children, title, width = "narrow" }: Props) {
                 {user.display_name.slice(0, 1).toUpperCase()}
               </span>
             )}
-            {streak > 0 && (
+            {fires > 0 && (
               <span
                 className="flex items-center gap-0.5 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700 ring-1 ring-orange-200"
-                title={`${streak}-day streak`}
+                title={`${fires} 🔥 received`}
               >
                 <span aria-hidden>🔥</span>
-                <span>{streak}</span>
+                <span>{fires}</span>
               </span>
             )}
           </Link>

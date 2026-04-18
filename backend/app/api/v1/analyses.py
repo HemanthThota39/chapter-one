@@ -74,6 +74,10 @@ async def list_mine(user: CurrentUser) -> dict:
             "verdict": r["verdict"],
             "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None,
             "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
+            "post_id": str(r["post_id"]) if r.get("post_id") else None,
+            "fire_count": r.get("fire_count") or 0,
+            "comment_count": r.get("comment_count") or 0,
+            "i_fired": bool(r.get("i_fired")),
         })
     return {"items": items}
 
