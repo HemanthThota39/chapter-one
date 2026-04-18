@@ -1,0 +1,87 @@
+name: Deploy to dev
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: co-dev-rg-cin
+
+jobs:
+  build-backend:
+    name: Build + push backend image
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - id: tag
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Resolve ACR name
+        id: acr
+        run: |
+          ACR=$(az acr list -g "$RG" --query '[0].name' -o tsv)
+          echo "name=$ACR" >> "$GITHUB_OUTPUT"
+      - name: az acr build
+        run: |
+          az acr build \
+            --registry ${{ steps.acr.outputs.name }} \
+            --image "backend:${{ steps.tag.outputs.tag }}" \
+            --file backend/Dockerfile \
+            backend/
+
+  deploy-infra:
+    name: Bicep deploy (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: [build-backend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Resolve ACR login server
+        id: acr
+        run: |
+          ACR_FQDN=$(az acr list -g "$RG" --query '[0].loginServer' -o tsv)
+          echo "login_server=$ACR_FQDN" >> "$GITHUB_OUTPUT"
+      - name: Deploy
+        run: |
+          az deployment group create \
+            -g "$RG" \
+            -f infra/main.bicep \
+            -p @infra/envs/dev.parameters.json \
+            -p aiFoundryApiKey="${{ secrets.AZURE_OPENAI_API_KEY_DEV }}" \
+            -p backendImage="${{ steps.acr.outputs.login_server }}/backend:${{ needs.build-backend.outputs.image_tag }}" \
+            -p targetPort=8000 \
+            --name "deploy-$(date +%Y%m%d-%H%M%S)"
+
+  deploy-frontend:
+    name: Deploy frontend to SWA
+    runs-on: ubuntu-latest
+    needs: [deploy-infra]
+    if: ${{ secrets.SWA_DEPLOYMENT_TOKEN_DEV != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN_DEV }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          app_location: frontend
+          output_location: .next
+          action: upload

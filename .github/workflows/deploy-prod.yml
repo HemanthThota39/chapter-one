@@ -1,0 +1,73 @@
+name: Deploy to prod
+on:
+  push:
+    tags: ['v*.*.*']
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: co-prod-rg-cin
+
+jobs:
+  build-backend:
+    name: Build + push backend image (prod)
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - id: tag
+        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+      - name: Resolve ACR name
+        id: acr
+        run: |
+          ACR=$(az acr list -g "$RG" --query '[0].name' -o tsv)
+          echo "name=$ACR" >> "$GITHUB_OUTPUT"
+      - name: az acr build
+        run: |
+          az acr build \
+            --registry ${{ steps.acr.outputs.name }} \
+            --image "backend:${{ steps.tag.outputs.tag }}" \
+            --file backend/Dockerfile \
+            backend/
+
+  deploy-infra:
+    name: Bicep deploy (prod)
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [build-backend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Resolve ACR login server
+        id: acr
+        run: |
+          ACR_FQDN=$(az acr list -g "$RG" --query '[0].loginServer' -o tsv)
+          echo "login_server=$ACR_FQDN" >> "$GITHUB_OUTPUT"
+      - name: Deploy
+        run: |
+          az deployment group create \
+            -g "$RG" \
+            -f infra/main.bicep \
+            -p @infra/envs/prod.parameters.json \
+            -p aiFoundryApiKey="${{ secrets.AZURE_OPENAI_API_KEY_PROD }}" \
+            -p backendImage="${{ steps.acr.outputs.login_server }}/backend:${{ needs.build-backend.outputs.image_tag }}" \
+            -p targetPort=8000 \
+            -p monthlyBudgetInr=12500 \
+            --name "deploy-${{ github.ref_name }}"
