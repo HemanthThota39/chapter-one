@@ -32,13 +32,10 @@ export default function LandingPage() {
     }
   }, [session, router]);
 
-  if (session.status === "loading") {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <div className="text-sm text-neutral-500">Loading...</div>
-      </main>
-    );
-  }
+  // Don't full-screen-takeover on session loading — render the landing
+  // content; the useEffect above redirects authenticated users once the
+  // session resolves. A loading flash on the landing page is a dead-end
+  // when session fetch happens to be slow.
 
   return (
     <main className="flex min-h-screen flex-col">

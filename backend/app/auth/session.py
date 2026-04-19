@@ -22,7 +22,15 @@ from app.config import get_settings
 
 log = logging.getLogger(__name__)
 
-SESSION_LIFETIME = timedelta(days=30)
+# Sessions live effectively forever ("until logged out" per product spec).
+# 365 days keeps the cookie max-age within the RFC 6265 practical bounds
+# while meaning the user never gets silently signed out. On every /session
+# call we re-issue the cookie with a fresh 365-day window (sliding), so
+# active users rotate their expiry continuously.
+SESSION_LIFETIME = timedelta(days=365)
+# Re-issue a fresh cookie when less than this much time is left, so active
+# users never drop below a near-full lifetime window.
+SESSION_SLIDING_THRESHOLD = timedelta(days=7)
 COOKIE_NAME = "co_session"
 
 

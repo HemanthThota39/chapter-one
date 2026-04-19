@@ -198,9 +198,15 @@ async def session(user: OptionalCurrentUser, response: Response) -> dict[str, An
     data["id"] = str(data["id"])
     data["onboarding_complete"] = bool(data.get("username"))
 
-    # Self-heal: if the cookie is stale (cookie.username != db.username),
-    # mint a fresh cookie so subsequent requests don't need the DB fallback.
-    if user.session.username != row["username"]:
+    # Sliding session refresh: re-issue the cookie whenever it has less than
+    # SESSION_SLIDING_THRESHOLD left on the clock, so active users never
+    # silently drop out of the session window. We also re-issue whenever the
+    # cached cookie username is stale vs. the DB (post-onboarding self-heal).
+    from datetime import datetime, timezone
+    from app.auth.session import SESSION_SLIDING_THRESHOLD
+    username_changed = user.session.username != row["username"]
+    time_left = user.session.expires_at - datetime.now(timezone.utc)
+    if username_changed or time_left < SESSION_SLIDING_THRESHOLD:
         token, _ = create_session_cookie(
             user_id=user.id,
             external_id=user.external_id,

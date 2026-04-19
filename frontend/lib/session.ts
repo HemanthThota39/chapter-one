@@ -92,6 +92,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Background revalidation: when the user returns to the tab after being
+  // away (SSE torn down, cookie possibly rotated on the server, or tab
+  // suspended), quietly re-fetch session. We intentionally don't reset the
+  // existing session to "loading" — if the refresh succeeds we swap to the
+  // newer payload without any UI flicker.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchSession().then((s) => {
+          // Only apply if we actually got a resolved state back.
+          if (s.status !== "loading") setSession(s);
+        }).catch(() => {/* keep previous session */});
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, []);
+
   // Single notifications SSE for the entire app lifetime. Previously lived
   // inside <AppShell> which remounts on every page navigation — that was
   // opening a new SSE stream each time and accumulating ghost connections

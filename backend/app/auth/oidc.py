@@ -78,12 +78,18 @@ class OidcClient:
             "scope": "openid email profile offline_access",
             "state": state,
             "nonce": nonce,
-            # `prompt=select_account` forces Entra to drop any cached session
-            # state before showing sign-in. Without it, AADSTS165000 fires
-            # when the user has an orphan/expired session from a previous
-            # aborted login — Entra calls that "user session context is
-            # missing" because its own cookie store is inconsistent.
-            "prompt": "select_account",
+            # `prompt=login` forces Entra to re-authenticate from scratch,
+            # bypassing any cached session cookies it holds for this user.
+            # This is the nuclear option, but it's necessary here because:
+            #  - AADSTS165000 fires when Entra's session context is stale
+            #    (partial prior sign-in attempt).
+            #  - AADSTS50133 fires when Entra's cached session references a
+            #    Google/IdP password that has since rotated or expired.
+            # Both are the same class of "stale cached session" bug.
+            # `prompt=login` makes Entra ignore its own cache and start
+            # fresh every time — the user sees the account picker and logs
+            # in, and we never hit the stale-session error path.
+            "prompt": "login",
         }
         return f"{auth_endpoint}?{urlencode(params)}"
 
