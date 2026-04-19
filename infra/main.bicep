@@ -42,6 +42,9 @@ param monthlyBudgetInr int = 3000
 @description('Email address for budget + ops alerts')
 param alertEmail string = 'hemant.thota@gmail.com'
 
+@description('Known SWA default hostname (set in env.parameters.json). Passed in to break the apiApp <-> SWA dependency cycle: API needs SWA hostname for CORS + redirect, SWA needs apiApp resourceId for linkedBackend.')
+param swaDefaultHostname string = ''
+
 // --- M1 additions ---
 @description('Postgres admin password — generated fresh for each env; stored in Key Vault.')
 @secure()
@@ -200,12 +203,15 @@ module storage 'modules/storage.bicep' = {
 }
 
 // ---------------------------------------------------------------------
-// Static Web App — frontend hosting
+// Static Web App — frontend hosting. Standard SKU + linkedBackend so
+// /api/* is proxied same-origin to the Container App, eliminating the
+// cross-origin third-party-cookie class of sign-in failures.
 // ---------------------------------------------------------------------
 module web 'modules/static-web-app.bicep' = {
   name: 'static-web-app'
   params: {
     name: swaName
+    backendApiFqdn: apiApp.outputs.id
   }
 }
 
@@ -356,7 +362,11 @@ module apiApp 'modules/container-app-api.bicep' = {
     aiFoundryDeployment: aiFoundryDeployment
     aiFoundryApiVersion: aiFoundryApiVersion
     blobEndpoint:    storage.outputs.blobEndpoint
-    frontendHostname: web.outputs.defaultHostname
+    // swaDefaultHostname MUST be passed in via parameters.json. Bicep would
+    // otherwise form a cycle (API wants hostname for CORS, SWA wants API
+    // resourceId for linkedBackend). The hostname is stable across
+    // re-deploys of an existing SWA, so parameter-izing is safe.
+    frontendHostname: swaDefaultHostname
     environmentDefaultDomain: caEnv.outputs.defaultDomain
     serviceBusNamespace: '${serviceBus.outputs.namespaceName}.servicebus.windows.net'
     serviceBusQueueAnalyses: serviceBus.outputs.queueName

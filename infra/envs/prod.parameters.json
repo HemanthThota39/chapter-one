@@ -6,6 +6,7 @@
     "location": { "value": "centralindia" },
     "aiFoundryEndpoint": { "value": "https://testingclaudecode.cognitiveservices.azure.com/" },
     "aiFoundryDeployment": { "value": "gpt-5.3-chat" },
-    "aiFoundryApiVersion": { "value": "2025-03-01-preview" }
+    "aiFoundryApiVersion": { "value": "2025-03-01-preview" },
+    "swaDefaultHostname": { "value": "gentle-cliff-0783c0310.7.azurestaticapps.net" }
   }
 }

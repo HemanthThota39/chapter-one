@@ -22,7 +22,12 @@ jobs:
       - name: Install + build
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_BASE_URL: https://co-dev-api-cin.agreeablepebble-e0216b43.centralindia.azurecontainerapps.io
+          # Empty → frontend uses same-origin relative URLs. Same-origin /api/*
+          # calls get auto-proxied by the SWA's linkedBackend to the Container
+          # App, so the browser never makes cross-origin requests. This is the
+          # permanent fix for the third-party-cookie login failures (Safari
+          # ITP, Brave, strict Chrome mode, iOS Safari).
+          NEXT_PUBLIC_API_BASE_URL: ""
         run: |
           npm ci || npm install
           npm run build

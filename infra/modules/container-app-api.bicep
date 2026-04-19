@@ -157,7 +157,11 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'ENTRA_CLIENT_ID', secretRef: 'entra-client-id' }
             { name: 'ENTRA_CLIENT_SECRET', secretRef: 'entra-client-secret' }
             { name: 'BLOB_ENDPOINT', value: blobEndpoint }
-            { name: 'API_BASE_URL', value: 'https://${name}.${environmentDefaultDomain}' }
+            // With SWA linkedBackend in place, every request the browser
+            // makes — including the OIDC callback — comes through the SWA
+            // origin. Redirect URIs we mint must match. So API_BASE_URL is
+            // the SWA hostname (not the raw Container App FQDN).
+            { name: 'API_BASE_URL', value: empty(frontendHostname) ? 'https://${name}.${environmentDefaultDomain}' : 'https://${frontendHostname}' }
             { name: 'FRONTEND_BASE_URL', value: empty(frontendHostname) ? 'http://localhost:3000' : 'https://${frontendHostname}' }
             { name: 'CORS_ORIGINS', value: empty(frontendHostname) ? 'http://localhost:3000' : 'https://${frontendHostname},http://localhost:3000' }
             { name: 'SERVICE_BUS_NAMESPACE', value: serviceBusNamespace }

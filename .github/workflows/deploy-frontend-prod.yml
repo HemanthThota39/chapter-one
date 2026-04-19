@@ -18,7 +18,8 @@ jobs:
       - name: Install + build
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_BASE_URL: https://co-prod-api-cin.gentlewater-2e8d231c.centralindia.azurecontainerapps.io
+          # Empty → same-origin. SWA linkedBackend proxies /api/* to Container App.
+          NEXT_PUBLIC_API_BASE_URL: ""
         run: |
           npm ci || npm install
           npm run build
