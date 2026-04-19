@@ -132,9 +132,6 @@ async def _process_one(
             v = e.verdict
             friendly_map = {
                 "chitchat": "Please submit a concrete startup or product idea.",
-                "injection": "This input looks like an attempt to manipulate the analyser. Please describe a real startup idea.",
-                "harmful": "We can't analyse that kind of content. Please submit a startup or product idea.",
-                "empty": "The idea text was empty or too short to analyse.",
                 "other": "This doesn't look like a startup idea we can analyse.",
             }
             friendly = friendly_map.get(v.category, friendly_map["other"])
