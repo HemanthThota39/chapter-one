@@ -78,6 +78,12 @@ class OidcClient:
             "scope": "openid email profile offline_access",
             "state": state,
             "nonce": nonce,
+            # `prompt=select_account` forces Entra to drop any cached session
+            # state before showing sign-in. Without it, AADSTS165000 fires
+            # when the user has an orphan/expired session from a previous
+            # aborted login — Entra calls that "user session context is
+            # missing" because its own cookie store is inconsistent.
+            "prompt": "select_account",
         }
         return f"{auth_endpoint}?{urlencode(params)}"
 

@@ -84,26 +84,67 @@ async def login(redirect: str | None = None) -> RedirectResponse:
     return resp
 
 
+def _login_error_redirect(settings: Any, reason: str) -> RedirectResponse:
+    """Send the user back to the landing page with a friendly error query
+    param, instead of leaving them on a blank "400 Bad Request"."""
+    url = f"{settings.frontend_base_url}/?auth_error={reason}"
+    return RedirectResponse(url=url, status_code=302)
+
+
 @router.get("/callback")
-async def callback(request: Request, code: str, state: str) -> RedirectResponse:
+async def callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+) -> RedirectResponse:
     """OIDC callback — validate, upsert user, issue session."""
     settings = get_settings()
 
+    # Entra can redirect back with an error instead of a code (user cancelled,
+    # consent denied, AADSTS flakiness). Surface that cleanly.
+    if error:
+        log.warning("OIDC callback error from IdP: %s — %s", error, error_description)
+        return _login_error_redirect(settings, "idp_error")
+
+    if not code or not state:
+        log.warning("OIDC callback missing code or state")
+        return _login_error_redirect(settings, "missing_params")
+
     stored_state = request.cookies.get("co_oidc_state")
-    if stored_state is None or stored_state != state:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid_state")
+    if stored_state is None:
+        # Cookie was dropped. Most common cause: user's browser blocked
+        # third-party cookies during the cross-site redirect, or the state
+        # cookie expired (10 min TTL). Don't hang them on 400; send them
+        # back to retry.
+        log.warning("OIDC callback: co_oidc_state cookie missing")
+        return _login_error_redirect(settings, "session_lost")
+    if stored_state != state:
+        log.warning("OIDC callback: state mismatch")
+        return _login_error_redirect(settings, "state_mismatch")
 
     stored_nonce = request.cookies.get("co_oidc_nonce")
     post_login_redirect = request.cookies.get("co_post_login_redirect") or f"{settings.frontend_base_url}/feed"
 
     oidc = get_oidc_client()
     redirect_uri = f"{settings.api_base_url}/api/v1/auth/callback"
-    tokens = await oidc.exchange_code(code=code, redirect_uri=redirect_uri)
+    try:
+        tokens = await oidc.exchange_code(code=code, redirect_uri=redirect_uri)
+    except Exception:
+        log.exception("OIDC code exchange failed")
+        return _login_error_redirect(settings, "token_exchange_failed")
+
     id_token = tokens.get("id_token")
     if not id_token:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no id_token in response")
+        log.warning("OIDC callback: no id_token in token response")
+        return _login_error_redirect(settings, "no_id_token")
 
-    claims = await oidc.verify_id_token(id_token=id_token, expected_nonce=stored_nonce)
+    try:
+        claims = await oidc.verify_id_token(id_token=id_token, expected_nonce=stored_nonce)
+    except Exception:
+        log.exception("OIDC id_token verification failed")
+        return _login_error_redirect(settings, "token_invalid")
 
     user = await _upsert_user_from_claims(
         external_id=claims.sub,
